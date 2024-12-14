@@ -38,6 +38,7 @@ private:
     static DWORD WINAPI listenForRequest(LPVOID lpParameter);
     static char* base64(const unsigned char* input, int length);
     void handshake(SOCKET_INFORMATION *client);
+    void interpretData(SOCKET_INFORMATION* client);
 public:
     WebSocket() : _running(false), server(INVALID_SOCKET), acceptSocket(INVALID_SOCKET) {};
     bool Initialize();

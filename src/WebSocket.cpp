@@ -1,6 +1,8 @@
 #include <WebSocket.h>
 #include <stdio.h>
 
+#define BITVALUE(X,N) (((X) >> (N)) & 0x1)
+
 char* WebSocket::base64(const unsigned char* input, int length) {
     BIO* bmem, * b64;
     BUF_MEM* bptr;
@@ -41,16 +43,60 @@ void WebSocket::handshake(SOCKET_INFORMATION* client) {
         std::string response =
             "HTTP/1.1 101 Switching Protocols\r\n"
             "Upgrade: websocket\r\n"
+            // "Sec-WebSocket-Version: 13\r\n"
             "Connection: Upgrade\r\n"
             "Sec-WebSocket-Accept: " + sBuff + "\r\n\r\n";
 
-        // printf("%s\n", response.c_str());
-        client->DataBuf.buf = (char*)response.c_str();
+        printf("Sending handshake!\n");
+        strcpy(client->Buffer, response.c_str());
+        client->DataBuf.buf = client->Buffer;
         client->DataBuf.len = response.length();
         WSASend(client->Socket, &(client->DataBuf), 1, &_SendBytes, 0, &(client->Overlapped), NULL);
+        // WSAResetEvent(client->Overlapped.hEvent);
     }
     return;
 }
+
+void printEachBitOfByte(char& byte) {
+    for (int i = 0; i < 8; ++i) {
+        printf("%d ", BITVALUE(byte, i));
+    };
+    printf("\n");
+    return;
+}
+
+void WebSocket::interpretData(SOCKET_INFORMATION* client) {
+    // printf("data = %s\n", client->Buffer);
+    int offset = 0;
+    if (BITVALUE(client->Buffer[0], offset) == 0) return;
+    printf("=============BYTE 1==============\n");
+    printEachBitOfByte(client->Buffer[0]);
+    //FIN
+    printf("FIN bit: %d\n", BITVALUE(client->Buffer[0], offset));
+
+    // RSV1,RSV2,RSV3
+    printf("RSV: %d %d %d \n", BITVALUE(client->Buffer[0], ++offset), BITVALUE(client->Buffer[0], ++offset), BITVALUE(client->Buffer[0], ++offset));
+    //Opcode 
+    int opcodeMask = 0x0F;
+
+    printf("OPCODE: 0x%04x\n", client->Buffer[0] & opcodeMask);
+
+    offset = 0;
+    printf("=============BYTE 2==============\n");
+    printEachBitOfByte(client->Buffer[1]);
+    // MASK bit
+    printf("Mask bit: %d\n", BITVALUE(client->Buffer[1], offset));
+
+    // Payload length
+    printf("Payload length: %d | 0x%02x\n", client->Buffer[1] & 0x7F, client->Buffer[1] & 0x7F);
+    printf("Offset: %d\n", offset);
+
+    if ((char)(client->Buffer[1] & 0x7F) == 0x7e) {
+        printEachBitOfByte(client->Buffer[2]);
+    }
+    return;
+}
+
 
 DWORD __stdcall WebSocket::listenForRequest(LPVOID lpParameter) {
     WebSocket* self = static_cast<WebSocket*>(lpParameter);
@@ -158,32 +204,26 @@ void WebSocket::stop() {
 }
 
 void WebSocket::handleRequests() {
-    printf("Handle request!\n");
-    DWORD Index;
-    DWORD Flags;
+    DWORD Index, Flags, i;
     SOCKET_INFORMATION* SI;
     DWORD BytesTransferred;
-    DWORD i;
+
     while (true) {
-        if ((Index = WSAWaitForMultipleEvents(eventTotal, EventArray, FALSE, WSA_INFINITE, false)) == WSA_WAIT_FAILED) {
+        Index = WSAWaitForMultipleEvents(eventTotal, EventArray, FALSE, WSA_INFINITE, FALSE);
+        if (Index == WSA_WAIT_FAILED) {
             fprintf(stderr, "WSAWaitForMultipleEvents() failed %d\n", WSAGetLastError());
-            return;
+            continue;
         }
-        else {
-            // printf("WSAWaitForMultipleEvents() is OK!\n");
-        }
-
-
         if ((Index - WSA_WAIT_EVENT_0) == 0) {
+            printf("User connected!\n");
             WSAResetEvent(EventArray[0]);
-            // printf("FirstEvent\n");
             continue;
         }
 
         SI = SocketArray[Index - WSA_WAIT_EVENT_0];
         WSAResetEvent(EventArray[Index - WSA_WAIT_EVENT_0]);
 
-        if (WSAGetOverlappedResult(SI->Socket, &(SI->Overlapped), &BytesTransferred, FALSE, &Flags) == false || BytesTransferred == 0) {
+        if (WSAGetOverlappedResult(SI->Socket, &SI->Overlapped, &BytesTransferred, FALSE, &Flags) == false || BytesTransferred == 0) {
             printf("Closing socket %d\n", SI->Socket);
             if (closesocket(SI->Socket) == SOCKET_ERROR) {
                 printf("closesocket() failed with error %d\n", WSAGetLastError());
@@ -192,77 +232,42 @@ void WebSocket::handleRequests() {
                 printf("closesocket() is ok!\n");
             }
 
-            free(SI);
-
             WSACloseEvent(EventArray[Index - WSA_WAIT_EVENT_0]);
 
-            if ((Index - WSA_WAIT_EVENT_0) + 1 != eventTotal) {
-                for (i = Index - WSA_WAIT_EVENT_0; i < eventTotal; i++) {
-                    EventArray[i] = EventArray[i + 1];
-                    SocketArray[i] = SocketArray[i + 1];
-                }
+            for (i = Index - WSA_WAIT_EVENT_0; i < eventTotal; i++) {
+                EventArray[i] = EventArray[i + 1];
+                SocketArray[i] = SocketArray[i + 1];
             }
-
+            free(SI);
             eventTotal--;
             continue;
         }
 
-        //first received message
-        if (SI->BytesRECV == 0) {
-
-            SI->BytesRECV = BytesTransferred;
-            SI->BytesSEND = 0;
-
-            //handshake
-            if (SI->handshakeDone == false)
-                handshake(SI);
-        }
-        else {
-            SI->BytesSEND += BytesTransferred;
+        if (!SI->handshakeDone) {
+            handshake(SI);
+            continue;
         }
 
-        // if (SI->BytesRECV > SI->BytesSEND) {
-        //     ZeroMemory(&(SI->Overlapped), sizeof(WSAOVERLAPPED));
-        //     printf("Recv: %d | Send: %d\n", SI->BytesRECV, SI->BytesSEND);
-        //     SI->Overlapped.hEvent = EventArray[Index - WSA_WAIT_EVENT_0];
+        SI->BytesRECV += BytesTransferred;
+        // printf("%d\n", EventArray[Index - WSA_WAIT_EVENT_0]);
 
-        //     SI->DataBuf.buf = SI->Buffer + SI->BytesSEND;
-        //     SI->DataBuf.len = SI->BytesRECV - SI->BytesSEND;
+        SI->Buffer[SI->BytesRECV] = '\0';
+        // printf("BT = %d\n", BytesTransferred);
+        // printf("Recv: %s\n", SI->DataBuf.buf);
 
-        //     printf("Sending bytes: %s\n", SI->DataBuf.buf);
-        //     if (WSASend(SI->Socket, &(SI->DataBuf), 1, &_SendBytes, 0, &(SI->Overlapped), NULL) == SOCKET_ERROR) {
-        //         if (WSAGetLastError() != ERROR_IO_PENDING) {
-        //             fprintf(stderr, "WSASend() failed with error %d\n", WSAGetLastError());
-        //             return;
-        //         }
-        //     }
-        //     else {
-        //         printf("WSASend() is ok!\n");
-        //     }
-        // }
-        // else {}
-        SI->BytesRECV = 0;
 
-        Flags = 0;
-        ZeroMemory(&(SI->Overlapped), sizeof(WSAOVERLAPPED));
+        interpretData(SI);
+        ZeroMemory(&SI->Overlapped, sizeof(WSAOVERLAPPED));
         SI->Overlapped.hEvent = EventArray[Index - WSA_WAIT_EVENT_0];
-
-        SI->DataBuf.len = DATA_BUFSIZE;
+        Flags = 0;
+        SI->BytesRECV = 0;
         SI->DataBuf.buf = SI->Buffer;
-        printf("simea\n");
+        SI->DataBuf.len = DATA_BUFSIZE;
 
-        if (WSARecv(SI->Socket, &(SI->DataBuf), 1, &_RecvBytes, &Flags, &(SI->Overlapped), NULL) == SOCKET_ERROR) {
-            if (WSAGetLastError() != ERROR_IO_PENDING) {
-                fprintf(stderr, "WSARecv() failed with error %d\n", WSAGetLastError());
-                return;
+        if (WSARecv(SI->Socket, &SI->DataBuf, 1, &_RecvBytes, &Flags, &SI->Overlapped, NULL) == SOCKET_ERROR) {
+            if (WSAGetLastError() != WSA_IO_PENDING) {
+                printf("Something went wrong with WSARecv: %d\n", WSAGetLastError());
             }
-        }
-        else {
-            printf("WSARecv() is OK!\n");
-            printf("Buf: %s\n", SI->DataBuf.buf);
-            // check what is the request and do handshake
-            // handshake(SI, std::string(SI->DataBuf.buf));
-            ZeroMemory(&SI->DataBuf, sizeof(WSABUF));
         }
     }
     return;
