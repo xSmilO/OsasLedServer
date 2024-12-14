@@ -2,6 +2,8 @@
 #include <winsock2.h>
 #include <string>
 #include <thread>
+#include <vector>
+#include <cstring>
 #include <openssl/sha.h>
 #include <openssl/bio.h>
 #include <openssl/evp.h>
@@ -39,6 +41,7 @@ private:
     static char* base64(const unsigned char* input, int length);
     void handshake(SOCKET_INFORMATION *client);
     void interpretData(SOCKET_INFORMATION* client);
+    static uint64_t getPayloadLength(const char* buffer, size_t &offset); 
 public:
     WebSocket() : _running(false), server(INVALID_SOCKET), acceptSocket(INVALID_SOCKET) {};
     bool Initialize();

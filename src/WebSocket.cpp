@@ -3,6 +3,18 @@
 
 #define BITVALUE(X,N) (((X) >> (N)) & 0x1)
 
+uint64_t reverseBytes(uint64_t value) {
+    return ((value & 0x00000000000000FFULL) << 56) |
+        ((value & 0x000000000000FF00ULL) << 40) |
+        ((value & 0x0000000000FF0000ULL) << 24) |
+        ((value & 0x00000000FF000000ULL) << 8) |
+        ((value & 0x000000FF00000000ULL) >> 8) |
+        ((value & 0x0000FF0000000000ULL) >> 24) |
+        ((value & 0x00FF000000000000ULL) >> 40) |
+        ((value & 0xFF00000000000000ULL) >> 56);
+}
+
+
 char* WebSocket::base64(const unsigned char* input, int length) {
     BIO* bmem, * b64;
     BUF_MEM* bptr;
@@ -57,8 +69,8 @@ void WebSocket::handshake(SOCKET_INFORMATION* client) {
     return;
 }
 
-void printEachBitOfByte(char& byte) {
-    for (int i = 0; i < 8; ++i) {
+void printEachBitOfByte(const char& byte, size_t bits) {
+    for (int i = 0; i < bits; ++i) {
         printf("%d ", BITVALUE(byte, i));
     };
     printf("\n");
@@ -67,10 +79,10 @@ void printEachBitOfByte(char& byte) {
 
 void WebSocket::interpretData(SOCKET_INFORMATION* client) {
     // printf("data = %s\n", client->Buffer);
-    int offset = 0;
+    size_t offset = 0;
     if (BITVALUE(client->Buffer[0], offset) == 0) return;
     printf("=============BYTE 1==============\n");
-    printEachBitOfByte(client->Buffer[0]);
+    printEachBitOfByte(client->Buffer[0], sizeof(char) * 8);
     //FIN
     printf("FIN bit: %d\n", BITVALUE(client->Buffer[0], offset));
 
@@ -83,18 +95,64 @@ void WebSocket::interpretData(SOCKET_INFORMATION* client) {
 
     offset = 0;
     printf("=============BYTE 2==============\n");
-    printEachBitOfByte(client->Buffer[1]);
+    printEachBitOfByte(client->Buffer[1], sizeof(char) * 8);
     // MASK bit
     printf("Mask bit: %d\n", BITVALUE(client->Buffer[1], offset));
 
     // Payload length
-    printf("Payload length: %d | 0x%02x\n", client->Buffer[1] & 0x7F, client->Buffer[1] & 0x7F);
+    offset = 1;
+    uint64_t payloadLength = getPayloadLength(client->Buffer, offset);
+    printf("Payload length: %ld\n", payloadLength);
     printf("Offset: %d\n", offset);
 
-    if ((char)(client->Buffer[1] & 0x7F) == 0x7e) {
-        printEachBitOfByte(client->Buffer[2]);
+    // masking key
+
+    int32_t* maskingKey = (int32_t*)&client->Buffer[offset];
+    printEachBitOfByte(client->Buffer[offset], 32);
+    offset += 4;
+
+    // printf("%d | %d | %d | %d\n", payloadLength, payloadLength / 8, (payloadLength / 8) * 8, payloadLength - ((payloadLength / 8) * 8));
+    // size_t octets = payloadLength / 8;
+    // if (payloadLength - ((payloadLength / 8) * 8) > 0)
+    //     octets++;
+    // printf("%d\n", octets);
+    size_t j = 0;
+    int8_t* original = (int8_t*)&client->Buffer[offset];
+    int8_t* masking = (int8_t*)maskingKey;
+    char* payloadData = new char[payloadLength + 1];
+    payloadData[payloadLength] = '\0';
+    for (size_t i = 0; i < payloadLength; ++i) {
+        j = i % 4;
+        payloadData[i] = original[i] ^ masking[j];
     }
+
+    printf("text: %s\n", payloadData);
     return;
+}
+
+uint64_t WebSocket::getPayloadLength(const char* buffer, size_t& offset) {
+    uint8_t firstByte = buffer[offset];
+    uint8_t payloadLen = firstByte & 0x7F;
+    offset++;
+
+    if (payloadLen <= 125) {
+        return payloadLen;
+    }
+    else if (payloadLen == 126) {
+        uint16_t length = 0;
+        std::memcpy(&length, buffer + offset, sizeof(length));
+        length = ntohs(length);
+        offset += 2;
+        return length;
+    }
+    else if (payloadLen == 127) {
+        uint64_t length;
+        std::memcpy(&length, buffer + offset, sizeof(length));
+        length = reverseBytes(length);
+        offset += 8;
+        return length;
+    }
+    return 0;
 }
 
 
