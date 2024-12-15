@@ -39,13 +39,14 @@ private:
     
     static DWORD WINAPI listenForRequest(LPVOID lpParameter);
     static char* base64(const unsigned char* input, int length);
-    void handshake(SOCKET_INFORMATION *client);
+    void handshake(SOCKET_INFORMATION* client);
     void interpretData(SOCKET_INFORMATION* client);
-    static uint64_t getPayloadLength(const char* buffer, size_t &offset); 
+    static uint64_t getPayloadLength(const char* buffer, size_t& offset); 
 public:
     WebSocket() : _running(false), server(INVALID_SOCKET), acceptSocket(INVALID_SOCKET) {};
     bool Initialize();
     bool start();
     void stop();
     void handleRequests();
+    void createSendResponse(std::vector<uint8_t>& frame,SOCKET_INFORMATION* client, std::string message);
 }; 
