@@ -9,10 +9,11 @@
 #include <openssl/evp.h>
 #include <openssl/buffer.h>
 
-#define DATA_BUFSIZE 8192
+#define DATA_BUFSIZE 512000 // 0.5KB
 
 struct SOCKET_INFORMATION {
     char Buffer[DATA_BUFSIZE];
+    std::string receivedMessage;
     WSABUF DataBuf;
     SOCKET Socket;
     WSAOVERLAPPED Overlapped;
@@ -39,14 +40,17 @@ private:
     
     static DWORD WINAPI listenForRequest(LPVOID lpParameter);
     static char* base64(const unsigned char* input, int length);
+    static uint64_t getPayloadLength(const char* buffer, size_t& offset); 
     void handshake(SOCKET_INFORMATION* client);
     void interpretData(SOCKET_INFORMATION* client);
-    static uint64_t getPayloadLength(const char* buffer, size_t& offset); 
+    void closeConnectionWith(SOCKET_INFORMATION* client, size_t index);
+    void createSendResponse(std::vector<uint8_t>& frame,SOCKET_INFORMATION* client, std::string& message);
 public:
     WebSocket() : _running(false), server(INVALID_SOCKET), acceptSocket(INVALID_SOCKET) {};
     bool Initialize();
     bool start();
     void stop();
     void handleRequests();
-    void createSendResponse(std::vector<uint8_t>& frame,SOCKET_INFORMATION* client, std::string message);
+    void send(SOCKET_INFORMATION* client, size_t& evtIdx, uint8_t* data);
+
 }; 
