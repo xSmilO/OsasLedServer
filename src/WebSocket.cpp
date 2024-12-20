@@ -47,16 +47,23 @@ void WebSocket::handshake(SOCKET_INFORMATION* client) {
     printf("Perfoming handshake\n");
     client->handshakeDone = true;
     std::string request(client->DataBuf.buf);
+    std::string SecKey = "Sec-WebSocket-Accept: ";
     size_t keyPos = request.find("Sec-WebSocket-Key: ");
-    std::string SecKey = "";
+    if (keyPos == std::string::npos) {
+        keyPos = request.find("sec-websocket-key: ");
+        SecKey = "sec-websocket-accept: ";
+    }
+    std::string SecValue = "";
+
     int keyOffset = 19;
+    // printf("Handshake: %s\n", request.c_str());
     if (keyPos != std::string::npos) {
         size_t endPos = request.find("\r\n", keyPos);
 
-        SecKey = request.substr(keyPos + keyOffset, endPos - keyPos - keyOffset);
-        SecKey += GUID;
+        SecValue = request.substr(keyPos + keyOffset, endPos - keyPos - keyOffset);
+        SecValue += GUID;
         unsigned char hash[SHA_DIGEST_LENGTH];
-        SHA1(reinterpret_cast<const unsigned char*>(SecKey.c_str()), SecKey.size(), hash);
+        SHA1(reinterpret_cast<const unsigned char*>(SecValue.c_str()), SecValue.size(), hash);
 
         char* buff = base64(hash, SHA_DIGEST_LENGTH);
         std::string sBuff(buff);
@@ -65,14 +72,13 @@ void WebSocket::handshake(SOCKET_INFORMATION* client) {
             "Upgrade: websocket\r\n"
             // "Sec-WebSocket-Version: 13\r\n"
             "Connection: Upgrade\r\n"
-            "Sec-WebSocket-Accept: " + sBuff + "\r\n\r\n";
+            "" + SecKey + sBuff + "\r\n\r\n";
 
         printf("Sending handshake!\n");
         strcpy(client->Buffer, response.c_str());
         client->DataBuf.buf = client->Buffer;
         client->DataBuf.len = response.length();
         WSASend(client->Socket, &(client->DataBuf), 1, &_SendBytes, 0, &(client->Overlapped), NULL);
-        // WSAResetEvent(client->Overlapped.hEvent);
     }
     return;
 }
@@ -104,6 +110,7 @@ uint64_t WebSocket::getPayloadLength(const char* buffer, size_t& offset) {
 
 void WebSocket::interpretData(SOCKET_INFORMATION* client) {
     size_t offset = 0;
+    client->wholeFrame = true;
     if (BITVALUE(client->Buffer[0], 7) == 0) return;
     printf("======= INTERPRET DATA =======\n");
     printf("=============BYTE 1==============\n");
@@ -117,36 +124,54 @@ void WebSocket::interpretData(SOCKET_INFORMATION* client) {
     int opcodeMask = 0x0F;
 
     printf("OPCODE: 0x%04x\n", client->Buffer[0] & opcodeMask);
-
+    if ((client->Buffer[0] & opcodeMask) > 0x9) {
+        return;
+    }
     offset = 0;
     printf("=============BYTE 2==============\n");
     printEachBitOfByte(client->Buffer[1], sizeof(char) * 8);
     // MASK bit
     printf("Mask bit: %d\n", BITVALUE(client->Buffer[1], 7));
-
+    uint64_t frameSize = 0;
     // Payload length
     offset++;
     uint64_t payloadLength = getPayloadLength(client->Buffer, offset);
     printf("Payload length: %ld\n", payloadLength);
+    if (BITVALUE(client->Buffer[1], 7) != 0) {
+        frameSize += 4;
+    }
+    frameSize += offset;
+    frameSize += payloadLength;
 
+    printf("Frame size: %d | %d\n", frameSize, client->BytesRECV);
+    if (frameSize > client->BytesRECV) {
+        client->wholeFrame = false;
+        return;
+    }
     char* payloadData = new char[payloadLength];
-    // payloadData[payloadLength] = '\0';
     if (BITVALUE(client->Buffer[1], 7) != 0) {
         // masking key
-        int32_t* maskingKey = (int32_t*)&client->Buffer[offset];
+        uint32_t* maskingKey = (uint32_t*)&client->Buffer[offset];
         // printEachBitOfByte(client->Buffer[offset], 32);
+        printf("Masking offset: %d\n", offset);
+        printf("Maskingkey: 0x%08x\n", *maskingKey);
         offset += 4;
 
+
         size_t j = 0;
-        int8_t* original = (int8_t*)&client->Buffer[offset];
-        int8_t* masking = (int8_t*)maskingKey;
+        uint8_t* original = (uint8_t*)&client->Buffer[offset];
+        uint8_t* masking = (uint8_t*)maskingKey;
+        if (payloadLength == 4) {
+            // only for debug
+        }
         for (size_t i = 0; i < payloadLength; ++i) {
             j = i % 4;
+            printf("%02x ", original[i]);
             payloadData[i] = original[i] ^ masking[j];
         }
     }
     else {
-        int8_t* original = (int8_t*)&client->Buffer[offset];
+        uint8_t* original = (uint8_t*)&client->Buffer[offset];
         for (size_t i = 0; i < payloadLength; ++i) {
             payloadData[i] = original[i];
         }
@@ -221,19 +246,23 @@ void WebSocket::handleRequests() {
 
         SI->BytesRECV += BytesTransferred;
         SI->Buffer[SI->BytesRECV] = '\0';
-
+        printf("BT: %d\n", SI->BytesRECV);
         interpretData(SI);
-        std::vector<uint8_t> res = {};
-        memcpy(SI->Buffer, res.data(), res.size());
-        SI->DataBuf.buf = SI->Buffer;
-        SI->DataBuf.len = res.size();
+        printf("reveived message: %s\n", SI->receivedMessage.c_str()); // printf("first char in bits(8): ");
+        // printEachBitOfByte(SI->receivedMessage[0], 8);
+        // printf("first char in bits(16): ");
+        // printEachBitOfByte(SI->receivedMessage[1], 8);
+        // serverSend(SI, Index, SI->receivedMessage);
+        std::string res = "Witaj";
+        // serverSend(SI, Index, res);
 
         ZeroMemory(&SI->Overlapped, sizeof(WSAOVERLAPPED));
         SI->Overlapped.hEvent = EventArray[Index - WSA_WAIT_EVENT_0];
         Flags = 0;
-        SI->BytesRECV = 0;
-        SI->DataBuf.buf = SI->Buffer;
-        SI->DataBuf.len = DATA_BUFSIZE;
+        if (SI->wholeFrame)
+            SI->BytesRECV = 0;
+        SI->DataBuf.buf = &SI->Buffer[SI->BytesRECV];
+        SI->DataBuf.len = DATA_BUFSIZE - SI->BytesRECV;
 
         if (WSARecv(SI->Socket, &SI->DataBuf, 1, &_RecvBytes, &Flags, &SI->Overlapped, NULL) == SOCKET_ERROR) {
             if (WSAGetLastError() == WSAECONNRESET) {
@@ -247,16 +276,26 @@ void WebSocket::handleRequests() {
     return;
 }
 
-void WebSocket::send(SOCKET_INFORMATION* client, size_t& evtIdx, uint8_t* data) {
-    DWORD flags;
-    ZeroMemory(&client->Overlapped, sizeof(OVERLAPPED));
-    client->Overlapped.hEvent = EventArray[evtIdx, WSA_WAIT_EVENT_0];
+
+void WebSocket::serverSend(SOCKET_INFORMATION* client, DWORD& evtIdx, std::string& data) {
+    std::vector<uint8_t> frame = {};
+    createSendResponse(frame, data);
+    memcpy(client->Buffer, frame.data(), frame.size());
+    client->DataBuf.buf = client->Buffer;
+    client->DataBuf.len = frame.size();
+    // printf("idx: %d\n", evtIdx);
+    ZeroMemory(&client->Overlapped, sizeof(WSAOVERLAPPED));
+    client->Overlapped.hEvent = EventArray[evtIdx - WSA_WAIT_EVENT_0];
+    if (WSASend(client->Socket, &client->DataBuf, 1, &_SendBytes, 0, &client->Overlapped, NULL) == SOCKET_ERROR) {
+        if (WSAGetLastError() != WSA_IO_PENDING) {
+            printf("Something went wrong while sending message: %ld\n", WSAGetLastError());
+        }
+    };
 }
 
-void WebSocket::createSendResponse(std::vector<uint8_t>& frame, SOCKET_INFORMATION* client, std::string& message) {
+void WebSocket::createSendResponse(std::vector<uint8_t>& frame, std::string& message) {
     frame.clear();
     size_t payloadLength = message.size();
-
     uint8_t firstByte = 0x80 | 0x1;
     frame.push_back(firstByte);
 
@@ -356,6 +395,7 @@ bool WebSocket::start() {
         SocketArray[eventTotal]->DataBuf.buf = SocketArray[eventTotal]->Buffer;
         SocketArray[eventTotal]->DataBuf.len = DATA_BUFSIZE;
         SocketArray[eventTotal]->handshakeDone = false;
+        SocketArray[eventTotal]->receivedMessage = "";
 
         if ((SocketArray[eventTotal]->Overlapped.hEvent = EventArray[eventTotal] = WSACreateEvent()) == WSA_INVALID_EVENT) {
             fprintf(stderr, "WSACreateEvent() failed with error %d\n", WSAGetLastError());

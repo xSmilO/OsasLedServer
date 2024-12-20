@@ -19,6 +19,7 @@ struct SOCKET_INFORMATION {
     WSAOVERLAPPED Overlapped;
     DWORD BytesSEND;
     DWORD BytesRECV;
+    bool wholeFrame;
     bool handshakeDone;
 }; 
 
@@ -44,13 +45,13 @@ private:
     void handshake(SOCKET_INFORMATION* client);
     void interpretData(SOCKET_INFORMATION* client);
     void closeConnectionWith(SOCKET_INFORMATION* client, size_t index);
-    void createSendResponse(std::vector<uint8_t>& frame,SOCKET_INFORMATION* client, std::string& message);
+    void createSendResponse(std::vector<uint8_t>& frame, std::string& message);
 public:
     WebSocket() : _running(false), server(INVALID_SOCKET), acceptSocket(INVALID_SOCKET) {};
     bool Initialize();
     bool start();
     void stop();
     void handleRequests();
-    void send(SOCKET_INFORMATION* client, size_t& evtIdx, uint8_t* data);
+    void serverSend(SOCKET_INFORMATION* client, DWORD& evtIdx, std::string& data);
 
 }; 
