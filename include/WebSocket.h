@@ -19,7 +19,6 @@ struct SOCKET_INFORMATION {
     WSAOVERLAPPED Overlapped;
     DWORD BytesSEND;
     DWORD BytesRECV;
-    bool wholeFrame;
     bool handshakeDone;
 }; 
 
@@ -41,9 +40,12 @@ private:
     
     static DWORD WINAPI listenForRequest(LPVOID lpParameter);
     static char* base64(const unsigned char* input, int length);
-    static uint64_t getPayloadLength(const char* buffer, size_t& offset); 
+    static uint64_t getPayloadLength(const char* buffer, uint8_t& offset); 
+    bool isFrameComplete(SOCKET_INFORMATION* client);
+    bool isFrameValid(SOCKET_INFORMATION* client);
+    void getPayloadData(SOCKET_INFORMATION* client);
+    void showFrameMetadata(SOCKET_INFORMATION* client);
     void handshake(SOCKET_INFORMATION* client);
-    void interpretData(SOCKET_INFORMATION* client);
     void closeConnectionWith(SOCKET_INFORMATION* client, size_t index);
     void createSendResponse(std::vector<uint8_t>& frame, std::string& message);
 public:
