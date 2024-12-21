@@ -13,7 +13,7 @@
 
 struct SOCKET_INFORMATION {
     char Buffer[DATA_BUFSIZE];
-    std::string receivedMessage;
+    char receivedMessage[DATA_BUFSIZE];
     WSABUF DataBuf;
     SOCKET Socket;
     WSAOVERLAPPED Overlapped;
@@ -48,6 +48,7 @@ private:
     void handshake(SOCKET_INFORMATION* client);
     void closeConnectionWith(SOCKET_INFORMATION* client, size_t index);
     void createSendResponse(std::vector<uint8_t>& frame, std::string& message);
+    void printBytes(uint8_t* bytes);
 public:
     WebSocket() : _running(false), server(INVALID_SOCKET), acceptSocket(INVALID_SOCKET) {};
     bool Initialize();

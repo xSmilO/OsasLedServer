@@ -166,7 +166,8 @@ void WebSocket::getPayloadData(SOCKET_INFORMATION* client) {
             payloadData[i] = original[i];
         }
     }
-    client->receivedMessage.assign(payloadData, payloadLength);
+    memcpy(&client->receivedMessage, payloadData, payloadLength);
+    client->receivedMessage[payloadLength] = '\0';
     delete payloadData;
     return;
 }
@@ -241,7 +242,9 @@ void WebSocket::handleRequests() {
             if (isFrameValid(SI)) {
                 showFrameMetadata(SI);
                 getPayloadData(SI);
-                printf("reveived message: %s\n", SI->receivedMessage.c_str());
+                // printf("reveived message: %s\n", SI->receivedMessage);
+                printf("\nBytes: ");
+                printBytes((uint8_t*)SI->receivedMessage);
             }
 
             SI->BytesRECV = 0;
@@ -314,6 +317,12 @@ void WebSocket::createSendResponse(std::vector<uint8_t>& frame, std::string& mes
     return;
 }
 
+void WebSocket::printBytes(uint8_t* bytes) {
+    for (; *bytes != '\0'; ++bytes) {
+        printf("%02x ", *bytes);
+    }
+}
+
 DWORD __stdcall WebSocket::listenForRequest(LPVOID lpParameter) {
     WebSocket* self = static_cast<WebSocket*>(lpParameter);
     self->handleRequests();
@@ -383,7 +392,6 @@ bool WebSocket::start() {
         SocketArray[eventTotal]->DataBuf.buf = SocketArray[eventTotal]->Buffer;
         SocketArray[eventTotal]->DataBuf.len = DATA_BUFSIZE;
         SocketArray[eventTotal]->handshakeDone = false;
-        SocketArray[eventTotal]->receivedMessage = "";
 
         if ((SocketArray[eventTotal]->Overlapped.hEvent = EventArray[eventTotal] = WSACreateEvent()) == WSA_INVALID_EVENT) {
             fprintf(stderr, "WSACreateEvent() failed with error %d\n", WSAGetLastError());
