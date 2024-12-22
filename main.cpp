@@ -3,6 +3,7 @@
 #include "LedController.h"
 #include <stdio.h>
 #include "WebSocketServer.h" 
+#include "FunctionQueue.h"
 
 const char* PORT_NAME = "\\\\.\\COM3";
 SerialPort* arduino = new SerialPort(PORT_NAME);

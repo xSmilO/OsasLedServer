@@ -245,14 +245,11 @@ void WebSocketServer::handleRequests() {
 
         if (isFrameComplete(SI) || !isFrameValid(SI)) {
             while (isFrameValid(SI) && SI->offset < SI->BytesRECV) {
-                Sleep(LED_CALL_DELAY); // slight delay for leds because they can't handle intense traffic
+                // Sleep(LED_CALL_DELAY); // slight delay for leds because they can't handle intense traffic
                 // showFrameMetadata(SI);
                 getPayloadData(SI);
-                // printf("reveived message: %s\n", SI->receivedMessage);
-                // printf("Bytes: ");
                 printBytes((uint8_t*)SI->receivedMessage);
                 printf("\n");
-                // printf("offset: %d\n", SI->offset);
                 controlLights((uint8_t*)SI->receivedMessage);
             }
             printf("Recv: %d\n", SI->BytesRECV);
@@ -339,7 +336,7 @@ void WebSocketServer::controlLights(uint8_t* bytes) {
     //static color effect
     if (*header == 0x1) {
         uint8_t* colors = &bytes[1];
-        _lc->Static(*colors, *(colors + 1), *(colors + 2));
+        _lc->addCall(&LedController::Static, *colors, *(colors + 1), *(colors + 2));
     }
 }
 

@@ -11,7 +11,6 @@
 #include "LedController.h"
 
 #define DATA_BUFSIZE 512000 // 0.5KB
-#define LED_CALL_DELAY 5
 
 struct SOCKET_INFORMATION {
     char Buffer[DATA_BUFSIZE];
