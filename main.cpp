@@ -2,16 +2,14 @@
 #include "stdafx.h"
 #include "LedController.h"
 #include <stdio.h>
-#include <WebSocket.h>
-// #include "SerialPort.hpp"
-
+#include "WebSocketServer.h" 
 
 const char* PORT_NAME = "\\\\.\\COM3";
 SerialPort* arduino = new SerialPort(PORT_NAME);
 
 int main() {
     LedController* ledController = new LedController(arduino);
-    WebSocket ws = WebSocket(ledController);
+    WebSocketServer ws = WebSocketServer(ledController);
 
     ws.Initialize();
     if (ws.start() == false) {

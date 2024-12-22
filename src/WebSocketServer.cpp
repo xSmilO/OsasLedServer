@@ -1,4 +1,4 @@
-#include <WebSocket.h>
+#include "WebSocketServer.h"
 #include <stdio.h>
 
 #define BITVALUE(X,N) (((X) >> (N)) & 0x1)
@@ -23,7 +23,7 @@ uint64_t reverseBytes(uint64_t value) {
 }
 
 
-char* WebSocket::base64(const unsigned char* input, int length) {
+char* WebSocketServer::base64(const unsigned char* input, int length) {
     BIO* bmem, * b64;
     BUF_MEM* bptr;
 
@@ -43,7 +43,7 @@ char* WebSocket::base64(const unsigned char* input, int length) {
     return buff;
 }
 
-void WebSocket::handshake(SOCKET_INFORMATION* client) {
+void WebSocketServer::handshake(SOCKET_INFORMATION* client) {
     printf("Perfoming handshake\n");
     client->handshakeDone = true;
     std::string request(client->DataBuf.buf);
@@ -70,7 +70,7 @@ void WebSocket::handshake(SOCKET_INFORMATION* client) {
         std::string response =
             "HTTP/1.1 101 Switching Protocols\r\n"
             "Upgrade: websocket\r\n"
-            // "Sec-WebSocket-Version: 13\r\n"
+            // "Sec-WebSocketServer-Version: 13\r\n"
             "Connection: Upgrade\r\n"
             "" + SecKey + sBuff + "\r\n\r\n";
 
@@ -83,7 +83,7 @@ void WebSocket::handshake(SOCKET_INFORMATION* client) {
     return;
 }
 
-uint64_t WebSocket::getPayloadLength(const char* buffer, uint8_t& offset) {
+uint64_t WebSocketServer::getPayloadLength(const char* buffer, uint8_t& offset) {
     uint8_t firstByte = buffer[offset];
     uint8_t payloadLen = firstByte & 0x7F;
     offset++;
@@ -108,7 +108,7 @@ uint64_t WebSocket::getPayloadLength(const char* buffer, uint8_t& offset) {
     return 0;
 }
 
-bool WebSocket::isFrameComplete(SOCKET_INFORMATION* client) {
+bool WebSocketServer::isFrameComplete(SOCKET_INFORMATION* client) {
     uint8_t offset = 1;
     size_t payloadLength = getPayloadLength(client->Buffer, offset);
     size_t frameSize = 0;
@@ -123,14 +123,14 @@ bool WebSocket::isFrameComplete(SOCKET_INFORMATION* client) {
     return client->BytesRECV >= frameSize;
 }
 
-bool WebSocket::isFrameValid(SOCKET_INFORMATION* client) {
+bool WebSocketServer::isFrameValid(SOCKET_INFORMATION* client) {
     // int off = 0;
     // printf("RSV: %d %d %d \n", BITVALUE(client->Buffer[0], ++off), BITVALUE(client->Buffer[0], ++off), BITVALUE(client->Buffer[0], ++off));
     // printf("RSV value: %d\n", client->Buffer[0] & 0x70);
     return (client->Buffer[0] & 0x70) == 0;
 }
 
-void WebSocket::showFrameMetadata(SOCKET_INFORMATION* client) {
+void WebSocketServer::showFrameMetadata(SOCKET_INFORMATION* client) {
     uint8_t offset = 1; // skip first byte 
     printf("****** FRAME METADATA ******\n");
     printf("FIN:  %d\n", BITVALUE(client->Buffer[0], 7));
@@ -141,7 +141,7 @@ void WebSocket::showFrameMetadata(SOCKET_INFORMATION* client) {
     return;
 }
 
-void WebSocket::getPayloadData(SOCKET_INFORMATION* client) {
+void WebSocketServer::getPayloadData(SOCKET_INFORMATION* client) {
     uint8_t offset = 0;
 
     offset++;
@@ -175,7 +175,7 @@ void WebSocket::getPayloadData(SOCKET_INFORMATION* client) {
     return;
 }
 
-void WebSocket::closeConnectionWith(SOCKET_INFORMATION* client, size_t index) {
+void WebSocketServer::closeConnectionWith(SOCKET_INFORMATION* client, size_t index) {
     if (closesocket(client->Socket) == SOCKET_ERROR) {
         printf("closesocket() failed with error %d\n", WSAGetLastError());
     }
@@ -192,7 +192,7 @@ void WebSocket::closeConnectionWith(SOCKET_INFORMATION* client, size_t index) {
     free(client);
     eventTotal--;
 }
-void WebSocket::handleRequests() {
+void WebSocketServer::handleRequests() {
     DWORD Index, Flags, i;
     SOCKET_INFORMATION* SI;
     DWORD BytesTransferred;
@@ -278,7 +278,7 @@ void WebSocket::handleRequests() {
 }
 
 
-void WebSocket::serverSend(SOCKET_INFORMATION* client, DWORD& evtIdx, std::string& data) {
+void WebSocketServer::serverSend(SOCKET_INFORMATION* client, DWORD& evtIdx, std::string& data) {
     std::vector<uint8_t> frame = {};
     createSendResponse(frame, data);
     memcpy(client->Buffer, frame.data(), frame.size());
@@ -294,7 +294,7 @@ void WebSocket::serverSend(SOCKET_INFORMATION* client, DWORD& evtIdx, std::strin
     };
 }
 
-void WebSocket::createSendResponse(std::vector<uint8_t>& frame, std::string& message) {
+void WebSocketServer::createSendResponse(std::vector<uint8_t>& frame, std::string& message) {
     frame.clear();
     size_t payloadLength = message.size();
     uint8_t firstByte = 0x80 | 0x1;
@@ -327,13 +327,13 @@ void WebSocket::createSendResponse(std::vector<uint8_t>& frame, std::string& mes
     return;
 }
 
-void WebSocket::printBytes(uint8_t* bytes) {
+void WebSocketServer::printBytes(uint8_t* bytes) {
     for (; *bytes != '\0'; ++bytes) {
         printf("%02x ", *bytes);
     }
 }
 
-void WebSocket::controlLights(uint8_t* bytes) {
+void WebSocketServer::controlLights(uint8_t* bytes) {
     uint8_t* header = &bytes[0];
 
     //static color effect
@@ -343,13 +343,13 @@ void WebSocket::controlLights(uint8_t* bytes) {
     }
 }
 
-DWORD __stdcall WebSocket::listenForRequest(LPVOID lpParameter) {
-    WebSocket* self = static_cast<WebSocket*>(lpParameter);
+DWORD __stdcall WebSocketServer::listenForRequest(LPVOID lpParameter) {
+    WebSocketServer* self = static_cast<WebSocketServer*>(lpParameter);
     self->handleRequests();
     return 0;
 }
 
-bool WebSocket::Initialize() {
+bool WebSocketServer::Initialize() {
     WSAData wsaData;
 
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
@@ -361,7 +361,7 @@ bool WebSocket::Initialize() {
     return true;
 }
 
-bool WebSocket::start() {
+bool WebSocketServer::start() {
     if ((server = WSASocket(AF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED)) == SOCKET_ERROR) {
         fprintf(stderr, "Server::Start: WSASocket failed. %d\n", WSAGetLastError());
         return false;
@@ -392,7 +392,7 @@ bool WebSocket::start() {
         return false;
     }
 
-    if (CreateThread(NULL, 0, WebSocket::listenForRequest, (LPVOID)this, 0, &listenThreadID) == NULL) {
+    if (CreateThread(NULL, 0, WebSocketServer::listenForRequest, (LPVOID)this, 0, &listenThreadID) == NULL) {
         fprintf(stderr, "Server::Start: thread creation failed. %d\n", GetLastError());
         return false;
     }
@@ -439,7 +439,7 @@ bool WebSocket::start() {
     return true;
 }
 
-void WebSocket::stop() {
+void WebSocketServer::stop() {
     if (_running) {
         _running = false;
 
