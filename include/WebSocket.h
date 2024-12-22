@@ -1,5 +1,5 @@
 #pragma once
-#include <winsock2.h>
+// #include "stdafx.h"
 #include <string>
 #include <thread>
 #include <vector>
@@ -8,8 +8,10 @@
 #include <openssl/bio.h>
 #include <openssl/evp.h>
 #include <openssl/buffer.h>
+#include "LedController.h"
 
 #define DATA_BUFSIZE 512000 // 0.5KB
+#define LED_CALL_DELAY 5
 
 struct SOCKET_INFORMATION {
     char Buffer[DATA_BUFSIZE];
@@ -20,10 +22,13 @@ struct SOCKET_INFORMATION {
     DWORD BytesSEND;
     DWORD BytesRECV;
     bool handshakeDone;
+    size_t offset;
 }; 
 
 class WebSocket {
 private:
+    LedController* _lc;
+
     const std::string GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"; 
     const int PORT = 27015;
 
@@ -49,8 +54,9 @@ private:
     void closeConnectionWith(SOCKET_INFORMATION* client, size_t index);
     void createSendResponse(std::vector<uint8_t>& frame, std::string& message);
     void printBytes(uint8_t* bytes);
+    void controlLights(uint8_t* bytes);
 public:
-    WebSocket() : _running(false), server(INVALID_SOCKET), acceptSocket(INVALID_SOCKET) {};
+    WebSocket(LedController* lc) : _lc(lc),  _running(false), server(INVALID_SOCKET), acceptSocket(INVALID_SOCKET) {};
     bool Initialize();
     bool start();
     void stop();

@@ -120,7 +120,7 @@ bool WebSocket::isFrameComplete(SOCKET_INFORMATION* client) {
     frameSize += offset;
     frameSize += payloadLength;
 
-    return client->BytesRECV == frameSize;
+    return client->BytesRECV >= frameSize;
 }
 
 bool WebSocket::isFrameValid(SOCKET_INFORMATION* client) {
@@ -145,29 +145,32 @@ void WebSocket::getPayloadData(SOCKET_INFORMATION* client) {
     uint8_t offset = 0;
 
     offset++;
-    uint64_t payloadLength = getPayloadLength(client->Buffer, offset);
+    uint64_t payloadLength = getPayloadLength(&client->Buffer[client->offset], offset);
 
     char* payloadData = new char[payloadLength];
-    if (BITVALUE(client->Buffer[1], 7) != 0) {
-        uint32_t* maskingKey = (uint32_t*)&client->Buffer[offset];
+    if (BITVALUE(client->Buffer[client->offset + 1], 7) != 0) {
+        uint32_t* maskingKey = (uint32_t*)&client->Buffer[offset + client->offset];
         offset += 4;
 
         size_t j = 0;
-        uint8_t* original = (uint8_t*)&client->Buffer[offset];
+        uint8_t* original = (uint8_t*)&client->Buffer[offset + client->offset];
         uint8_t* masking = (uint8_t*)maskingKey;
         for (size_t i = 0; i < payloadLength; ++i) {
             j = i % 4;
             payloadData[i] = original[i] ^ masking[j];
         }
+        client->offset += 4;
     }
     else {
-        uint8_t* original = (uint8_t*)&client->Buffer[offset];
+        uint8_t* original = (uint8_t*)&client->Buffer[offset + client->offset];
         for (size_t i = 0; i < payloadLength; ++i) {
             payloadData[i] = original[i];
         }
     }
-    memcpy(&client->receivedMessage, payloadData, payloadLength);
+    memcpy(client->receivedMessage, payloadData, payloadLength);
     client->receivedMessage[payloadLength] = '\0';
+    // memmove(&client->Buffer, &client->Buffer[payloadLength + 4 + 2], DATA_BUFSIZE - payloadLength - 4 - 2);
+    client->offset += payloadLength + 2;
     delete payloadData;
     return;
 }
@@ -236,18 +239,25 @@ void WebSocket::handleRequests() {
 
         SI->BytesRECV += BytesTransferred;
         SI->Buffer[SI->BytesRECV] = '\0';
-        // printf("BT: %d | %d\n", SI->BytesRECV, BytesTransferred);
+        printf("BT: %d | %d\n", SI->BytesRECV, BytesTransferred);
+
+        printf("%d | %d\n", isFrameComplete(SI), isFrameValid(SI));
 
         if (isFrameComplete(SI) || !isFrameValid(SI)) {
-            if (isFrameValid(SI)) {
-                showFrameMetadata(SI);
+            while (isFrameValid(SI) && SI->offset < SI->BytesRECV) {
+                Sleep(LED_CALL_DELAY); // slight delay for leds because they can't handle intense traffic
+                // showFrameMetadata(SI);
                 getPayloadData(SI);
                 // printf("reveived message: %s\n", SI->receivedMessage);
-                printf("\nBytes: ");
+                // printf("Bytes: ");
                 printBytes((uint8_t*)SI->receivedMessage);
+                printf("\n");
+                // printf("offset: %d\n", SI->offset);
+                controlLights((uint8_t*)SI->receivedMessage);
             }
-
+            printf("Recv: %d\n", SI->BytesRECV);
             SI->BytesRECV = 0;
+            SI->offset = 0;
         }
         Flags = 0;
         SI->DataBuf.buf = &SI->Buffer[SI->BytesRECV];
@@ -323,6 +333,16 @@ void WebSocket::printBytes(uint8_t* bytes) {
     }
 }
 
+void WebSocket::controlLights(uint8_t* bytes) {
+    uint8_t* header = &bytes[0];
+
+    //static color effect
+    if (*header == 0x1) {
+        uint8_t* colors = &bytes[1];
+        _lc->Static(*colors, *(colors + 1), *(colors + 2));
+    }
+}
+
 DWORD __stdcall WebSocket::listenForRequest(LPVOID lpParameter) {
     WebSocket* self = static_cast<WebSocket*>(lpParameter);
     self->handleRequests();
@@ -392,6 +412,7 @@ bool WebSocket::start() {
         SocketArray[eventTotal]->DataBuf.buf = SocketArray[eventTotal]->Buffer;
         SocketArray[eventTotal]->DataBuf.len = DATA_BUFSIZE;
         SocketArray[eventTotal]->handshakeDone = false;
+        SocketArray[eventTotal]->offset = 0;
 
         if ((SocketArray[eventTotal]->Overlapped.hEvent = EventArray[eventTotal] = WSACreateEvent()) == WSA_INVALID_EVENT) {
             fprintf(stderr, "WSACreateEvent() failed with error %d\n", WSAGetLastError());
