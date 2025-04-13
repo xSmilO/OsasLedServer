@@ -75,15 +75,34 @@ float Pixel::getBlueColor() {
 }
 
 void Pixel::sendData(Pixel* pPixels, SerialPort* pArduino, const int& NUM_LEDS) {
-    for (int i = 0; i < NUM_LEDS; i++) {
-        Pixel::s_id = pPixels[i].m_id;
-        Pixel::s_redColor = (uint8_t)pPixels[i].m_redColor;
-        Pixel::s_greenColor = (uint8_t)pPixels[i].m_greenColor;
-        Pixel::s_blueColor = (uint8_t)pPixels[i].m_blueColor;
+    if (!pArduino->isConnected()) return;
+    char* buf = new char[256];
+    char* sendData = new char[4];
+    uint16_t startHeader = 0xFFEF;
+    uint16_t endHeader = 0xFFEE;
 
-        pArduino->writeSerialPort((char*)&Pixel::s_id, sizeof(uint8_t));
-        pArduino->writeSerialPort((char*)&Pixel::s_redColor, sizeof(uint8_t));
-        pArduino->writeSerialPort((char*)&Pixel::s_greenColor, sizeof(uint8_t));
-        pArduino->writeSerialPort((char*)&Pixel::s_blueColor, sizeof(uint8_t));
-    }
+    //send start header
+    while (!pArduino->writeSerialPort((char*)&startHeader, sizeof(uint16_t)));
+    // printf("DATA\n");
+
+    // for (int i = 0; i < NUM_LEDS; ++i) {
+    //     sendData[0] = (uint8_t)pPixels[i].m_id;
+    //     sendData[1] = (uint8_t)pPixels[i].m_redColor;
+    //     sendData[2] = (uint8_t)pPixels[i].m_greenColor;
+    //     sendData[3] = (uint8_t)pPixels[i].m_blueColor;
+
+    //     while (!pArduino->writeSerialPort(sendData, sizeof(sendData))) {
+    //         printf("kutas! ");
+    //     }
+    // }
+    sendData[0] = (uint8_t)pPixels[2].m_id;
+    // sendData[1] = 0xAA;
+    // sendData[2] = 0xBB;
+    // sendData[3] = 0xCC;
+
+    while (!pArduino->writeSerialPort(sendData, 1));
+    while (!pArduino->writeSerialPort((char*)&endHeader, sizeof(uint16_t)));
+
+    delete[] sendData;
+    delete[] buf;
 }

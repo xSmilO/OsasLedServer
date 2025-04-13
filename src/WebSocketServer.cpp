@@ -336,7 +336,7 @@ void WebSocketServer::controlLights(uint8_t* bytes) {
     //static color effect
     if (*header == 0x1) {
         uint8_t* colors = &bytes[1];
-        _lc->addCall(&LedController::Static, *colors, *(colors + 1), *(colors + 2));
+        // _lc->addCall(&LedController::Static, *colors, *(colors + 1), *(colors + 2));
     }
 }
 

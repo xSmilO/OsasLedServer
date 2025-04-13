@@ -113,6 +113,7 @@ bool SerialPort::writeSerialPort(const char* buffer, unsigned int buf_size)
     if (!WriteFile(this->handler, (void*)buffer, buf_size, &bytesSend, 0))
     {
         ClearCommError(this->handler, &this->errors, &this->status);
+        printf("ERROR: 0x%08x\n", this->errors);
         return false;
     }
 

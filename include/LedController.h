@@ -4,6 +4,9 @@
 #include "FunctionQueue.h"
 #include <thread>
 
+#include "Effect.h"
+#include "Effects/StaticColor.h"
+
 #define NUM_LEDS 62
 #define LED_CALL_DELAY 5
 
@@ -12,19 +15,13 @@ private:
     uint32_t _numLeds = NUM_LEDS;
     Pixel* pPixels = new Pixel[NUM_LEDS];
     SerialPort* pDev = nullptr;
-    FunctionQueue callQueue;
+    std::queue<Effect*> effectsQueue;
+    Effect* currentEffect = nullptr;
     std::thread queuePullThread;
 public:
     LedController(SerialPort* dev);
-    void Static(uint8_t r, uint8_t g, uint8_t b);
     void queuePuller();
-
-    template<typename Func, typename... Args>
-    void addCall(Func f, Args... args);
+    void addEffect(Effect* effect);
 
 };
 
-template<typename Func, typename ...Args>
-inline void LedController::addCall(Func f, Args ...args) {
-    callQueue.push(f, this, args...);
-}
