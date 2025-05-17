@@ -1,4 +1,8 @@
 {
-    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools"
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    "files.associations": {
+        "*.shader": "glsl",
+        "queue": "cpp"
+    }
     // "C_Cpp.errorSquiggles": "disabled"
 }

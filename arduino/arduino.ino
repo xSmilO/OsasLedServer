@@ -7,50 +7,31 @@
 #define BRIGHTNESS 180
 
 // HEADERS
-const uint16_t START_HEADER = 0xFFEF;
-const uint16_t END_HEADER = 0xFFEE;
+const char* START_HEADER = "OSAS_START";
+const char* END_HEADER = "OSAS_END";
+const uint8_t START_HEADER_LEN = 10;
+const uint8_t END_HEADER_LEN = 8;
 
 CRGB newState[NUM_LEDS];
 CRGB currentState[NUM_LEDS];
 
-uint8_t id = 0;
-uint8_t red = 0;
-uint8_t green = 0;
-uint8_t blue = 0;
-int leds_setted = 0;
-float speed = 0.1;
-unsigned long lastUpdate;
-unsigned long elapsedTime;
+// buffers
+uint8_t mainBuf[512] = {0};
+uint8_t dataBuf[256];
 
-void lerp() {
-  for(int i=0; i<NUM_LEDS; ++i) {
-    uint8_t dR = newState[i].red - currentState[i].red;
-    uint8_t dG = newState[i].green - currentState[i].green;
-    uint8_t dB = newState[i].blue - currentState[i].blue;
+// headers
+uint16_t startHeaderIdx = 0;
+uint16_t endHeaderIdx = 0;
+bool startHeaderFounded = false;
+bool endHeaderFounded = false;
 
-    currentState[i].lerp16(newState[i], 0.4);
-  }
-}
+// sizes
+uint16_t bytesRead = 0;
+uint16_t bufCap = 512;
 
-void overflowErr() {
-  for(int i=0; i<NUM_LEDS; ++i) {
-    currentState[i].setRGB(30,30,30);
-  }
-
-  FastLED.show();
-}
-
-void setGreen() {
-  for(int i=0; i<NUM_LEDS; ++i) {
-    currentState[i].setRGB(0,255,0);
-  }
-
-  FastLED.show();
-}
-
-void setLeds(uint8_t* data, int dataSize) {
-  for(int i=0; i<dataSize; i+=4) {
-    currentState[(int) data[i]].setRGB(data[i+1], data[i+2], data[i+3]);
+void setLeds(uint8_t* data, uint16_t& dataSize) {
+  for(uint16_t i=0; i<dataSize; i+=4) {
+    currentState[(uint8_t) data[i]].setRGB(data[i+1], data[i+2], data[i+3]);
   }
 }
 
@@ -70,96 +51,79 @@ void setup() {
   Serial.setTimeout(1000);
 }
 
-uint8_t mainBuf[256] = {0};
-bool startHeaderReaded = false;
-bool endHeaderReaded = false;
-int bufSize = 256;
-int bytesRead = 0;
-int byteOffset = 0;
-int startHeaderIdx = -1;
-int endHeaderIdx = -1; 
-uint16_t headerPtr;
-uint8_t* bufPtr = nullptr;
-uint8_t* led_data = new uint8_t[NUM_LEDS];
-unsigned int ledDataSize = 0;
-unsigned int remainingBytes = 0;
-String msg = "";
 
-int temp = 0;
+// headerPtr = mainBuf[byteOffset] | (mainBuf[byteOffset + 1] << 8);
+void searchHeaders(uint8_t* buf, uint16_t& bufSize) {
+  uint16_t matchIdx = 0;
 
-void loop() {
-  msg = "";
-  // memset(mainBuf, 0, bufSize);
-  // temp = Serial.readBytes(mainBuf, bufSize);
-  // Serial.write(mainBuf, temp);
-  if (Serial.available() > 0) {
-    if(bytesRead < bufSize) {
-      bytesRead += Serial.readBytes((uint8_t*)(mainBuf + bytesRead), (bufSize - bytesRead));
+  for(uint16_t i = 0; i < bufSize; ++i) {
+    if(!startHeaderFounded) {
+      if(buf[i] == START_HEADER[matchIdx]) {
+        matchIdx++;
+      } else {
+        matchIdx = 0;
+      }
+
+      if(matchIdx >= START_HEADER_LEN) {
+        matchIdx = 0;
+        startHeaderFounded = true;
+        startHeaderIdx = i;
+      }
     } else {
-      bytesRead = 0;
-    }
+      if(buf[i] == END_HEADER[matchIdx]) {
+        matchIdx++;
+      } else {
+        matchIdx = 0;
+      }
 
-    if(bytesRead > 1) {
-      while(byteOffset < bytesRead - 1) {
-        headerPtr = mainBuf[byteOffset] | (mainBuf[byteOffset + 1] << 8);
-        if(!startHeaderReaded) {
-          // find START_HEADER
-          endHeaderReaded = false;
-          if(headerPtr == START_HEADER) {
-            startHeaderReaded = true;
-            startHeaderIdx = byteOffset;
-          }
-        } else {
-          // find END_HEADER
-          if(headerPtr == END_HEADER) {
-            endHeaderReaded = true;
-            endHeaderIdx = byteOffset;
-          }
-        }
-        byteOffset++;
+      if(matchIdx >= END_HEADER_LEN) {
+        matchIdx = 0;
+        endHeaderFounded = true;
+        endHeaderIdx = i - END_HEADER_LEN;
       }
     }
+   
+  }
 
-    if(endHeaderReaded) {
-      // copy data to led_data
-      endHeaderReaded = false;
-      startHeaderReaded = false;
-      memset(led_data, 0, NUM_LEDS);
-      ledDataSize = endHeaderIdx - (startHeaderIdx + 2);
-      if(ledDataSize < 0)
-      ledDataSize = 0;
-      memcpy(led_data, (mainBuf + 2 + startHeaderIdx), ledDataSize);
+  return;
+}
 
-      // i need to memmove the rest of main buffer until the end header because i' losing data bro!!!
-      remainingBytes = bufSize - endHeaderIdx;
-      memmove(mainBuf, &mainBuf[endHeaderIdx], remainingBytes);
-      // setLeds(led_data, ledDataSize);
-      // memset(mainBuf, 0, bufSize);
-      // reset variables
+void getData(uint8_t* buf, uint16_t& bufLen) {
+  memcpy(dataBuf, &buf[startHeaderIdx + 1], endHeaderIdx - startHeaderIdx);
+
+  //move data to start
+  uint16_t chunkSize = START_HEADER_LEN + (endHeaderIdx - startHeaderIdx) + END_HEADER_LEN;
+  memmove(buf, &buf[endHeaderIdx + END_HEADER_LEN + 1], bufLen - chunkSize);
+  bufLen -= chunkSize;
+
+  startHeaderFounded = false;
+  endHeaderFounded = false;
+  startHeaderIdx = 0;
+  endHeaderIdx = 0;
+
+  setLeds(dataBuf, chunkSize);
+  return;
+}
+
+void loop() {
+  // read bytes
+  // add bytes to buffer
+  // find headers
+  // repeat
+
+  while(Serial.available() > 0) {
+    if(bytesRead >= bufCap) {
       bytesRead = 0;
-      endHeaderIdx = -1;
-      startHeaderIdx = -1;
-      byteOffset = 0;
     }
-    if(endHeaderIdx != -1) {
-      msg += "memcpy(led_data, (mainBuf + ";
-      msg += String(startHeaderIdx + 2);
-      msg += " ), ";
-      msg += String(ledDataSize);
-      msg += ")    ";
-      msg +=  String(startHeaderIdx) + " " + String(endHeaderIdx);
-      msg += "Led data size ";
-      msg += String(ledDataSize);
+    bytesRead += Serial.readBytes(&mainBuf[bytesRead], bufCap - bytesRead);
 
-      msg += "\n";
-
-      // endHeaderIdx = -1;
-      // startHeaderIdx = -1;
-    }
-    // Serial.write(msg.c_str(), msg.length());
+    searchHeaders(mainBuf, bytesRead);
     // Serial.write(mainBuf, bytesRead);
-
-    // FastLED.show();
-    Serial.write(led_data, ledDataSize);
+    if(endHeaderFounded) {
+      getData(mainBuf, bytesRead);
+      
+    }
+  FastLED.show();
+   
   }
 }

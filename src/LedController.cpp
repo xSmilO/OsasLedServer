@@ -1,75 +1,66 @@
 #include "LedController.h"
 
-LedController::LedController(SerialPort* dev) {
+LedController::LedController(SerialPort *dev) {
     pDev = dev;
     queuePullThread = std::thread(&LedController::queuePuller, this);
 }
 
-const uint16_t START_HEADER = 0xFFEF;
-
-void printBytes(uint8_t* buf, int bufSize) {
+void printBytes(uint8_t *buf, int bufSize) {
     int i = 0;
-    while (i < bufSize) {
-        printf("%d: 0x%02x ", i, *(buf + i));
-        // printf("%c", *(buf + i));
+    while(i < bufSize) {
+        printf("0x%01x ", buf[i]);
         ++i;
     }
     printf("\n");
 }
 
-void printMsg(uint8_t* buf, int bufSize) {
+void printMsg(uint8_t *buf, int bufSize) {
     int i = 0;
-    while (i < bufSize) {
-        printf("%c", *(buf + i));
+    printf("MSG: ");
+    while(i < bufSize) {
+        printf("%c", buf[i]);
         ++i;
     }
-    printf("\n");
-}
-
-void findHeaders(uint8_t* buf, int bufSize) {
-    int byteOffset = 0;
-    uint16_t val;
-    printf("Size: %d\n", bufSize);
-    while (byteOffset < bufSize - 1) {
-        val = buf[byteOffset] | (buf[byteOffset + 1] << 8);
-
-        printf("0x%04x ", val);
-        if (val == START_HEADER) {
-            printf("FOUNDED!!!\n");
-        }
-        byteOffset++;
-    }
-
     printf("\n");
 }
 
 void LedController::queuePuller() {
-    int bufSize = 128;
-    char* arduinoBuff = new char[bufSize];
-    int bytesRecv = 0;
-    while (true) {
+    unsigned int bufCap = 512;
+    unsigned int bufSize = 0;
+    unsigned int bytesRecv = 0;
+    char *arduinoBuff = new char[bufCap];
+    while(true) {
         // Sleep(LED_CALL_DELAY);
-        // Sleep(200);
-        memset(arduinoBuff, 0, bufSize);
-        bytesRecv = pDev->readSerialPort(arduinoBuff, bufSize);
-        if (bytesRecv != 0) {
-            printf("recv: %d\n", bytesRecv);
-            printBytes((uint8_t*)arduinoBuff, bytesRecv);
-            // printMsg((uint8_t*)arduinoBuff, bytesRecv);
+        // Sleep(500);
+        if(GetAsyncKeyState(0x43)) {
+            printf("clear buf!\n");
+            memset(arduinoBuff, 0, bufCap);
+            bufSize = 0;
+        }
+        if(bufSize >= bufCap)
+            bufSize = 0;
+
+        bytesRecv = pDev->readSerialPort(&arduinoBuff[bufSize], bufCap - bufSize);
+        if(bytesRecv != 0) {
+            bufSize += bytesRecv;
             // printf("%s\n", arduinoBuff);
+            printf("recv: %d\n", bytesRecv);
+            printBytes((uint8_t *)arduinoBuff, bufSize);
+            printMsg((uint8_t *)arduinoBuff, bufSize);
+            bytesRecv = 0;
         }
 
-        // if (effectsQueue.empty()) {
-        //     continue;
-        // }
-        if (!effectsQueue.empty()) {
+        if(effectsQueue.empty()) {
+            continue;
+        }
+        if(!effectsQueue.empty()) {
             delete currentEffect;
             currentEffect = effectsQueue.front();
             effectsQueue.pop();
         }
 
-        if (currentEffect != nullptr)
-            if (currentEffect->update()) {
+        if(currentEffect != nullptr)
+            if(currentEffect->update()) {
                 delete currentEffect;
                 currentEffect = nullptr;
             }
@@ -78,7 +69,7 @@ void LedController::queuePuller() {
     }
 }
 
-void LedController::addEffect(Effect* effect) {
+void LedController::addEffect(Effect *effect) {
     effect->setNumLeds(_numLeds);
     effect->setOutputArr(pPixels);
     effectsQueue.push(effect);
