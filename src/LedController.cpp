@@ -5,6 +5,18 @@ LedController::LedController(SerialPort *dev) {
     queuePullThread = std::thread(&LedController::queuePuller, this);
 }
 
+void logBytes(uint8_t *buf, int bufSize, char *outLog) {
+    memset(outLog, 0, 512);
+    int length = 0;
+    for(uint16_t i = 0; i < bufSize; ++i) {
+        if(buf[i] == '\n') {
+            length += sprintf(outLog + length, "\n");
+        } else {
+            length += sprintf(outLog + length, "0x%01x ", buf[i]);
+        }
+    }
+}
+
 void printBytes(uint8_t *buf, int bufSize) {
     int i = 0;
     while(i < bufSize) {
@@ -26,27 +38,18 @@ void printMsg(uint8_t *buf, int bufSize) {
 
 void LedController::queuePuller() {
     unsigned int bufCap = 512;
-    unsigned int bufSize = 0;
+    uint16_t bufSize = 0;
     unsigned int bytesRecv = 0;
-    char *arduinoBuff = new char[bufCap];
+    char arduinoBuff[bufCap];
+
     while(true) {
         // Sleep(LED_CALL_DELAY);
-        // Sleep(500);
-        if(GetAsyncKeyState(0x43)) {
-            printf("clear buf!\n");
-            memset(arduinoBuff, 0, bufCap);
-            bufSize = 0;
-        }
-        if(bufSize >= bufCap)
-            bufSize = 0;
 
-        bytesRecv = pDev->readSerialPort(&arduinoBuff[bufSize], bufCap - bufSize);
+        // bytesRecv = pDev->readSerialPort(&arduinoBuff[bufSize], bufCap - bufSize);
+        bytesRecv = pDev->readSerialPort(arduinoBuff, bufCap);
+
         if(bytesRecv != 0) {
-            bufSize += bytesRecv;
-            // printf("%s\n", arduinoBuff);
-            printf("recv: %d\n", bytesRecv);
-            printBytes((uint8_t *)arduinoBuff, bufSize);
-            printMsg((uint8_t *)arduinoBuff, bufSize);
+            printMsg((uint8_t *)arduinoBuff, bytesRecv);
             bytesRecv = 0;
         }
 
@@ -59,11 +62,12 @@ void LedController::queuePuller() {
             effectsQueue.pop();
         }
 
-        if(currentEffect != nullptr)
+        if(currentEffect != nullptr) {
             if(currentEffect->update()) {
                 delete currentEffect;
                 currentEffect = nullptr;
             }
+        }
 
         Pixel::sendData(pPixels, pDev, _numLeds);
     }

@@ -1,10 +1,12 @@
 #include "FastLED.h"
 
-
 #define NUM_LEDS 62
 #define DATA_PIN 3
-#define BAUD_RATE 115200
+#define BAUD_RATE 400000
 #define BRIGHTNESS 180
+#define HEADER1 0xAA
+#define HEADER2 0x55
+#define FRAME_DATA_SIZE (NUM_LEDS * 4)
 
 // HEADERS
 const char* START_HEADER = "OSAS_START";
@@ -15,24 +17,32 @@ const uint8_t END_HEADER_LEN = 8;
 CRGB newState[NUM_LEDS];
 CRGB currentState[NUM_LEDS];
 
-// buffers
-uint8_t mainBuf[512] = {0};
-uint8_t dataBuf[256];
+// TIME
+const uint8_t REFRESH_RATE = 1000 / 20;
+uint32_t elapsedTime = 0;
+uint32_t lastUpdate = 0;
+uint32_t lastReceivedData = 0;
 
-// headers
-uint16_t startHeaderIdx = 0;
-uint16_t endHeaderIdx = 0;
-bool startHeaderFounded = false;
-bool endHeaderFounded = false;
 
-// sizes
-uint16_t bytesRead = 0;
-uint16_t bufCap = 512;
+enum ReadState {
+  WAIT_FOR_HEADER1,
+  WAIT_FOR_HEADER2,
+  READ_FRAME
+};
 
-void setLeds(uint8_t* data, uint16_t& dataSize) {
-  for(uint16_t i=0; i<dataSize; i+=4) {
-    currentState[(uint8_t) data[i]].setRGB(data[i+1], data[i+2], data[i+3]);
+ReadState state = WAIT_FOR_HEADER1;
+
+uint8_t frameBuffer[FRAME_DATA_SIZE];
+uint16_t frameIndex = 0;
+
+void updateLeds() {
+  for (uint16_t i = 0; i < NUM_LEDS; ++i) {
+    currentState[i].r = lerp8by8(currentState[i].r, newState[i].r, 32); // 32 = 12.5% toward target
+    currentState[i].g = lerp8by8(currentState[i].g, newState[i].g, 32);
+    currentState[i].b = lerp8by8(currentState[i].b, newState[i].b, 32);
+    // currentState[i].setRGB(newState[i].r, newState[i].g, newState[i].b);
   }
+  FastLED.show();
 }
 
 void setup() {
@@ -41,89 +51,69 @@ void setup() {
   FastLED.addLeds<WS2812B, DATA_PIN, GRB>(currentState, NUM_LEDS);  // GRB ordering is typical
   FastLED.setBrightness(BRIGHTNESS);
 
-  //initialize data
-  for(int i=0; i<NUM_LEDS; ++i) {
-    currentState[i] = CRGB(0,0,0);
-    newState[i] = CRGB(0,0,0);
-  }
 
   Serial.begin(BAUD_RATE);
-  Serial.setTimeout(1000);
-}
-
-
-// headerPtr = mainBuf[byteOffset] | (mainBuf[byteOffset + 1] << 8);
-void searchHeaders(uint8_t* buf, uint16_t& bufSize) {
-  uint16_t matchIdx = 0;
-
-  for(uint16_t i = 0; i < bufSize; ++i) {
-    if(!startHeaderFounded) {
-      if(buf[i] == START_HEADER[matchIdx]) {
-        matchIdx++;
-      } else {
-        matchIdx = 0;
-      }
-
-      if(matchIdx >= START_HEADER_LEN) {
-        matchIdx = 0;
-        startHeaderFounded = true;
-        startHeaderIdx = i;
-      }
-    } else {
-      if(buf[i] == END_HEADER[matchIdx]) {
-        matchIdx++;
-      } else {
-        matchIdx = 0;
-      }
-
-      if(matchIdx >= END_HEADER_LEN) {
-        matchIdx = 0;
-        endHeaderFounded = true;
-        endHeaderIdx = i - END_HEADER_LEN;
-      }
-    }
-   
-  }
-
-  return;
-}
-
-void getData(uint8_t* buf, uint16_t& bufLen) {
-  memcpy(dataBuf, &buf[startHeaderIdx + 1], endHeaderIdx - startHeaderIdx);
-
-  //move data to start
-  uint16_t chunkSize = START_HEADER_LEN + (endHeaderIdx - startHeaderIdx) + END_HEADER_LEN;
-  memmove(buf, &buf[endHeaderIdx + END_HEADER_LEN + 1], bufLen - chunkSize);
-  bufLen -= chunkSize;
-
-  startHeaderFounded = false;
-  endHeaderFounded = false;
-  startHeaderIdx = 0;
-  endHeaderIdx = 0;
-
-  setLeds(dataBuf, chunkSize);
-  return;
+  FastLED.clear();
+  FastLED.show();
 }
 
 void loop() {
-  // read bytes
-  // add bytes to buffer
-  // find headers
-  // repeat
+  while (Serial.available()) {
+    lastReceivedData = millis();
+    uint8_t byte = Serial.read();
 
-  while(Serial.available() > 0) {
-    if(bytesRead >= bufCap) {
-      bytesRead = 0;
+    switch (state) {
+      case WAIT_FOR_HEADER1:
+        if (byte == HEADER1) {
+          frameIndex = 0;
+          state = WAIT_FOR_HEADER2;
+          Serial.write("Header1 found");
+        }
+        break;
+      case WAIT_FOR_HEADER2:
+        if (byte == HEADER2) {
+          frameIndex = 0;
+          state = READ_FRAME;
+          Serial.write("Header2 found");
+        } else {
+          state = WAIT_FOR_HEADER1;
+        }
+        break;
+      case READ_FRAME:
+        // Serial.write("Reading frame");
+        frameBuffer[frameIndex++] = byte;
+        if (frameIndex >= FRAME_DATA_SIZE) {
+          processFrame(frameBuffer);
+          state = WAIT_FOR_HEADER1;
+        }
+        break;
     }
-    bytesRead += Serial.readBytes(&mainBuf[bytesRead], bufCap - bytesRead);
-
-    searchHeaders(mainBuf, bytesRead);
-    // Serial.write(mainBuf, bytesRead);
-    if(endHeaderFounded) {
-      getData(mainBuf, bytesRead);
-      
-    }
-  FastLED.show();
-   
   }
+
+  elapsedTime = millis();
+
+  if(elapsedTime - lastReceivedData >= 200 && state == READ_FRAME) {
+    Serial.print("reset");
+    state = WAIT_FOR_HEADER1;
+    frameIndex = 0;
+    lastReceivedData = elapsedTime;
+  }
+
+  if (elapsedTime - lastUpdate >= REFRESH_RATE) {
+    lastUpdate = elapsedTime;
+    updateLeds();
+  }
+}
+
+void processFrame(uint8_t* buffer) {
+  Serial.write("processing");
+  for (uint16_t i = 0; i < FRAME_DATA_SIZE; i += 4) {
+    uint8_t id = buffer[i];
+
+    if (id < NUM_LEDS) {
+      newState[id].setRGB(buffer[i+1], buffer[i+2], buffer[i+3]);
+    }
+  }
+
+  // FastLED.show();
 }

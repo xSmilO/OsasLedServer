@@ -44,29 +44,6 @@ int main() {
         }
 
         ledController->addEffect(new StaticColor(r, g, b));
-        continue;
-        // 1 - for start header
-        if(GetAsyncKeyState(0x31)) {
-            Pixel::sendStartHeader(arduino);
-            printf("Start header\n");
-        }
-
-        // 2 - for end header
-        if(GetAsyncKeyState(0x32)) {
-            Pixel::sendEndHeader(arduino);
-            printf("End header\n");
-        }
-
-        // 3 - sample data
-        if(GetAsyncKeyState(0x33)) {
-            Pixel::sendSampleData(arduino);
-            printf("sample data\n");
-        }
-
-        // 4 - send 1 byte
-        if(GetAsyncKeyState(0x34)) {
-            arduino->writeSerialPort("", 1);
-        }
     }
 
     // ws.stop();

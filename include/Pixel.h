@@ -2,10 +2,8 @@
 #include "stdafx.h"
 
 // constans values
-static const char *START_HEADER = "OSAS_START";
-static const char *END_HEADER = "OSAS_END";
-static const uint8_t START_HEADER_LEN = 10;
-static const uint8_t END_HEADER_LEN = 8;
+static const char HEADER1 = 0xAA;
+static const char HEADER2 = 0x55;
 
 class Pixel {
   protected:
@@ -31,7 +29,4 @@ class Pixel {
     void HSVtoRGB(const float &H, const float &S, const float &V);
 
     static void sendData(Pixel *pPixels, SerialPort *pArduino, const int &NUM_LEDS);
-    static void sendStartHeader(SerialPort *pArduino);
-    static void sendEndHeader(SerialPort *pArduino);
-    static void sendSampleData(SerialPort *pArduino);
 };

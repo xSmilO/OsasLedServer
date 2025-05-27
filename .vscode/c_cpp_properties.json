@@ -2,16 +2,17 @@
     "configurations": [
         {
             "name": "Win32",
-            "includePath": [
-                "${workspaceFolder}/**",
-                "${default}",
-                "D:/DEV/OpenSSL/include"
-            ],
+            "includePath": ["${workspaceFolder}/**", "D:/DEV/OpenSSL/include"],
             "defines": ["_DEBUG", "UNICODE", "_UNICODE"],
             "windowsSdkVersion": "10.0.22621.0",
-            "compilerPath": "cl.exe",
             "cStandard": "c17",
-            "configurationProvider": "ms-vscode.cmake-tools"
+            "configurationProvider": "ms-vscode.cmake-tools",
+            "compilerPath": "D:/DEV/mingw64/bin/g++.exe",
+            "intelliSenseMode": "gcc-x64",
+            "recursiveIncludes": {
+                "order": "depthFirst",
+                "priority": "beforeSystemIncludes"
+            }
         }
     ],
     "version": 4

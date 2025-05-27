@@ -19,8 +19,6 @@ void Pixel::fadeToBlack(float amt) {
     m_redColor -= m_redColor * (amt / 255);
     m_greenColor -= m_greenColor * (amt / 255);
     m_blueColor -= m_blueColor * (amt / 255);
-
-    // std::cout << "R: " << (int)m_redColor << "\n";
 }
 
 void Pixel::HSVtoRGB(const float &H, const float &S, const float &V) {
@@ -71,38 +69,25 @@ float Pixel::getBlueColor() {
 void Pixel::sendData(Pixel *pPixels, SerialPort *pArduino, const int &NUM_LEDS) {
     if(!pArduino->isConnected())
         return;
-    char *buf = new char[256];
-    char *sendData = new char[4];
+    char *sendData = new char[NUM_LEDS * 4];
+    size_t idx = 0;
 
-    // send start header
-    while(!pArduino->writeSerialPort(START_HEADER, START_HEADER_LEN))
+    // send start header 1
+    while(!pArduino->writeSerialPort(&HEADER1, 1))
+        ;
+
+    // send start header 2
+    while(!pArduino->writeSerialPort(&HEADER2, 1))
         ;
 
     for(size_t i = 0; i < NUM_LEDS; ++i) {
-        sendData[0] = pPixels[i].m_id;
-        sendData[1] = pPixels[i].m_redColor;
-        sendData[2] = pPixels[i].m_greenColor;
-        sendData[3] = pPixels[i].m_blueColor;
-
-        while(!pArduino->writeSerialPort(sendData, 4))
-            ;
+        sendData[idx++] = pPixels[i].m_id;
+        sendData[idx++] = pPixels[i].m_redColor;
+        sendData[idx++] = pPixels[i].m_greenColor;
+        sendData[idx++] = pPixels[i].m_blueColor;
     }
-
-    while(!pArduino->writeSerialPort(END_HEADER, END_HEADER_LEN))
+    while(!pArduino->writeSerialPort(sendData, NUM_LEDS * 4))
         ;
-
-    // while (!pArduino->writeSerialPort(sendData, 1));
 
     delete[] sendData;
-    delete[] buf;
-}
-
-void Pixel::sendStartHeader(SerialPort *pArduino) {
-    while(!pArduino->writeSerialPort(START_HEADER, START_HEADER_LEN))
-        ;
-}
-
-void Pixel::sendEndHeader(SerialPort *pArduino) {
-    while(!pArduino->writeSerialPort(END_HEADER, END_HEADER_LEN))
-        ;
 }
