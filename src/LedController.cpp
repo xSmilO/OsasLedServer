@@ -46,12 +46,12 @@ void LedController::queuePuller() {
         // Sleep(LED_CALL_DELAY);
 
         // bytesRecv = pDev->readSerialPort(&arduinoBuff[bufSize], bufCap - bufSize);
-        bytesRecv = pDev->readSerialPort(arduinoBuff, bufCap);
+        // bytesRecv = pDev->readSerialPort(arduinoBuff, bufCap);
 
-        if(bytesRecv != 0) {
-            printMsg((uint8_t *)arduinoBuff, bytesRecv);
-            bytesRecv = 0;
-        }
+        // if(bytesRecv != 0) {
+        //     printMsg((uint8_t *)arduinoBuff, bytesRecv);
+        //     bytesRecv = 0;
+        // }
 
         if(effectsQueue.empty()) {
             continue;
