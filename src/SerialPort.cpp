@@ -28,7 +28,7 @@ SerialPort::SerialPort(const char *portName) {
         if(!GetCommState(this->handler, &dcbSerialParameters)) {
             std::cerr << "Failed to get current serial parameters\n";
         } else {
-            dcbSerialParameters.BaudRate = CBR_115200;
+            dcbSerialParameters.BaudRate = 250000;
             dcbSerialParameters.ByteSize = 8;
             dcbSerialParameters.StopBits = ONESTOPBIT;
             dcbSerialParameters.Parity = NOPARITY;

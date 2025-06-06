@@ -88,7 +88,6 @@ void Pixel::sendData(Pixel *pPixels, SerialPort *pArduino, const int &NUM_LEDS) 
     }
 
     // send start header 1
-    ack = '0';
     do {
         // printf("chuj 1\n");
         while(!pArduino->writeSerialPort(&HEADER1, 1))
@@ -100,63 +99,53 @@ void Pixel::sendData(Pixel *pPixels, SerialPort *pArduino, const int &NUM_LEDS) 
         ;
     ack = '0';
 
-    uint8_t debugByte;
-    // clearing buffer
-    while(!pArduino->readSerialPort((char *)&debugByte, 1) != 0) {
-        if((char)debugByte != '1')
-            break;
-    }
-
-    uint8_t lastChunkIdx = 0;
+    uint8_t chunkIdx;
     bool shouldResent = false;
 
-    printf("========================\n");
+    auto begin = std::chrono::high_resolution_clock::now();
+    // printf("========================\n");
     for(size_t i = 0; i < TOTAL_SIZE; i += CHUNK_SIZE) {
         uint16_t remaining = TOTAL_SIZE - i;
         uint16_t sizeToSend = remaining < CHUNK_SIZE ? remaining : CHUNK_SIZE;
+        uint8_t offset = 0;
+        do {
 
-        while(!pArduino->writeSerialPort(frameData + i, sizeToSend))
-            ;
-
-        printf("|| SENDING : %d \n", sizeToSend);
-        // need to check in what bytes arduino stuck and resend them!
-        auto begin = std::chrono::high_resolution_clock::now();
-        lastChunkIdx = 0;
-        shouldResent = true;
-        while(pArduino->readSerialPort((char *)&debugByte, 1) != 0 || FROM_NOW_MILLIS(begin) < 300) {
-            if(debugByte == 69) {
-                printf("RESET CHUNK IDX\n");
-            } else {
-                printf("CHUNK IDX: %d | ", debugByte);
-            }
-
-            if(debugByte == 0) {
-                printf("ELAPSED: %ld", FROM_NOW_MILLIS(begin));
-                printf(" LAST BYTE: %d", lastChunkIdx);
-
-            } else
-                lastChunkIdx = debugByte;
-
-            printf("\n");
-            if(debugByte == sizeToSend) {
-                printf("SENDING NEXT PACKET\n");
-                shouldResent = false;
-                break;
-            }
-        }
-
-        // resend remaining non kurwa processed chunk do chuja bo arduino to gowno jeabne
-        if(shouldResent) {
-            printf("RESENDING %d Bytes\n", CHUNK_SIZE - lastChunkIdx);
-            while(!pArduino->writeSerialPort(frameData + i + lastChunkIdx, CHUNK_SIZE - lastChunkIdx))
+            while(!pArduino->writeSerialPort(frameData + i + offset, sizeToSend - offset))
                 ;
-        }
+            // printf("SENDED %d BYTES\n", sizeToSend);
+            offset = 0;
+            auto begin = std::chrono::high_resolution_clock::now();
 
-        printf("TIMES OUT\n");
+            while(pArduino->readSerialPort((char *)&chunkIdx, 1) != 0 || FROM_NOW_MILLIS(begin) < 100) {
+                // printf("CHUNK IDX: %d", chunkIdx);
+                if(chunkIdx == 0) {
+                    // printf("| %d", FROM_NOW_MILLIS(begin));
+                } else {
+                    offset = chunkIdx;
+                    if(chunkIdx > sizeToSend)
+                        offset = 0;
+                    begin = std::chrono::high_resolution_clock::now();
+                    // printf("| LAST IDX: %d", offset);
+                }
+
+                // printf("\n");
+                if(chunkIdx == sizeToSend) {
+                    break;
+                }
+            }
+            // printf("RESENDING %d\n", sizeToSend - offset);
+        } while(chunkIdx != sizeToSend);
+        // printf("SENDING NEXT CHUNK\n");
     }
-    printf("========================\n");
+    // printf("========================\n");
 
-    printf("udalo sie\n");
-
+    // printf("udalo sie\n");
+    // clear buffer
+    // printf("-=-=-=-=-=-=-=-=-=-=-=-=-=");
+    while(pArduino->readSerialPort((char *)&chunkIdx, 1) != 0) {
+        printf("TRASH %d\n", chunkIdx);
+    }
+    // Sleep(500);
+    // system("cls");
     delete[] frameData;
 }

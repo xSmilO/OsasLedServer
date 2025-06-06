@@ -2,7 +2,7 @@
 
 #define NUM_LEDS 62
 #define DATA_PIN 3
-#define BAUD_RATE 115200
+#define BAUD_RATE 250000
 #define BRIGHTNESS 180
 #define HEADER1 0xAA
 #define HEADER2 0x55
@@ -14,7 +14,7 @@ CRGB newState[NUM_LEDS];
 CRGB currentState[NUM_LEDS];
 
 // TIME
-const uint8_t REFRESH_RATE = 1000 / 30;
+const uint8_t REFRESH_RATE = 1000 / 60;
 uint32_t elapsedTime = 0;
 uint32_t lastUpdate = 0;
 uint32_t lastReceivedData = 0;
@@ -70,7 +70,7 @@ void loop() {
 
     switch (state) {
       case WAIT_FOR_HEADER1:
-        // debugColor(0, 0, 255);
+        // debugColor(255, 0, 0);
         if (byte == HEADER1) {
           state = WAIT_FOR_HEADER2;
           Serial.write('1');
@@ -78,6 +78,7 @@ void loop() {
         break;
 
       case WAIT_FOR_HEADER2:
+        // debugColor(0, 255, 0);
         if (byte == HEADER2) {
           state = READ_FRAME;
           frameIndex = 0;
@@ -89,14 +90,14 @@ void loop() {
       case READ_FRAME:
         chunk[chunkPos++] = byte;
         Serial.write(chunkPos);
-        // debugColor(chunkPos, 0,0);
+        // debugColor(chunkPos, chunkPos, chunkPos);
         if (chunkPos >= CHUNK_SIZE || frameIndex + chunkPos >= FRAME_DATA_SIZE) {
           // readed whole chunk
           memcpy(frameBuffer + frameIndex, chunk, chunkPos);
           // debugColor(0,0,255);
           frameIndex += chunkPos;
           // Serial.write('K');
-          Serial.write(69);
+          // Serial.write(69);
           // Serial.flush();
           chunkPos = 0;
         }
@@ -104,7 +105,7 @@ void loop() {
 
         if (frameIndex >= FRAME_DATA_SIZE) {
           // whole frame is read
-          debugColor(0, 200, 0);
+          // debugColor(0, 200, 0);
           processFrame(frameBuffer);
           state = WAIT_FOR_HEADER1;
         }
@@ -121,10 +122,10 @@ void loop() {
     updateLeds();
   }
 
-  // if (elapsedTime - lastReceivedData >= 200) {
-  //   state = WAIT_FOR_HEADER1;
-  //   lastReceivedData = elapsedTime;
-  // }
+  if (elapsedTime - lastReceivedData >= 1000) {
+    state = WAIT_FOR_HEADER1;
+    lastReceivedData = elapsedTime;
+  }
 }
 
 void processFrame(uint8_t* buffer) {

@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <winsock2.h>
 
-const char *PORT_NAME = "\\\\.\\COM3";
+const char *PORT_NAME = "\\\\.\\COM4";
 SerialPort *arduino = new SerialPort(PORT_NAME);
 
 int main() {
