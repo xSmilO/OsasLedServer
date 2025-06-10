@@ -41,12 +41,28 @@ void debugColor(uint8_t r, uint8_t g, uint8_t b) {
   FastLED.show();
 }
 
+float lerpColor(float a, float b, float t) {
+  return a + (b - a) * t;
+}
+
+uint8_t lerp8Snap(uint8_t current, uint8_t target, uint8_t amount, uint8_t threshold = 2) {
+  uint8_t lerped = lerp8by8(current, target, amount);
+  if (abs(lerped - target) <= threshold) {
+    return target;  // snap when close enough
+  }
+  return lerped;
+}
+
+
 void updateLeds() {
   for (uint16_t i = 0; i < NUM_LEDS; ++i) {
-    currentState[i].r = lerp8by8(currentState[i].r, newState[i].r, 32);  // 32 = 12.5% toward target
-    currentState[i].g = lerp8by8(currentState[i].g, newState[i].g, 32);
-    currentState[i].b = lerp8by8(currentState[i].b, newState[i].b, 32);
-    // currentState[i].setRGB(newState[i].r, newState[i].g, newState[i].b);
+    currentState[i].r = (uint8_t)lerpColor((float)currentState[i].r, (float)newState[i].r, 0.1);
+    currentState[i].g = (uint8_t)lerpColor((float)currentState[i].g, (float)newState[i].g, 0.1);
+    currentState[i].b = (uint8_t)lerpColor((float)currentState[i].b, (float)newState[i].b, 0.1);
+    // currentState[i].r = lerp8Snap(currentState[i].r, newState[i].r, 16, 4);
+    // currentState[i].g = lerp8Snap(currentState[i].g, newState[i].g, 16, 4);
+    // currentState[i].b = lerp8Snap(currentState[i].b, newState[i].b, 16, 4);
+    // currentState[i] = lerpColorHSV(currentState[i], newState[i], 32);
   }
   FastLED.show();
 }
@@ -70,7 +86,6 @@ void loop() {
 
     switch (state) {
       case WAIT_FOR_HEADER1:
-        // debugColor(255, 0, 0);
         if (byte == HEADER1) {
           state = WAIT_FOR_HEADER2;
           Serial.write('1');
@@ -78,7 +93,6 @@ void loop() {
         break;
 
       case WAIT_FOR_HEADER2:
-        // debugColor(0, 255, 0);
         if (byte == HEADER2) {
           state = READ_FRAME;
           frameIndex = 0;
@@ -90,22 +104,15 @@ void loop() {
       case READ_FRAME:
         chunk[chunkPos++] = byte;
         Serial.write(chunkPos);
-        // debugColor(chunkPos, chunkPos, chunkPos);
         if (chunkPos >= CHUNK_SIZE || frameIndex + chunkPos >= FRAME_DATA_SIZE) {
-          // readed whole chunk
           memcpy(frameBuffer + frameIndex, chunk, chunkPos);
-          // debugColor(0,0,255);
           frameIndex += chunkPos;
-          // Serial.write('K');
-          // Serial.write(69);
-          // Serial.flush();
           chunkPos = 0;
         }
 
 
         if (frameIndex >= FRAME_DATA_SIZE) {
           // whole frame is read
-          // debugColor(0, 200, 0);
           processFrame(frameBuffer);
           state = WAIT_FOR_HEADER1;
         }
@@ -129,19 +136,11 @@ void loop() {
 }
 
 void processFrame(uint8_t* buffer) {
-  // debugColor(0,255,0);
-
-  if (buffer[0] != 0) {
-    debugColor(255, 255, 0);
-    return;
-  }
   for (uint16_t i = 0; i < FRAME_DATA_SIZE; i += 4) {
     uint8_t id = buffer[i];
 
     if (id < NUM_LEDS) {
       newState[id].setRGB(buffer[i + 1], buffer[i + 2], buffer[i + 3]);
-      // currentState[id].setRGB(255, 0, 0);
     }
   }
-  // FastLED.show();
 }
