@@ -33,36 +33,11 @@ uint8_t chunk[CHUNK_SIZE];
 uint16_t frameIndex = 0;
 uint8_t chunkPos = 0;
 
-void debugColor(uint8_t r, uint8_t g, uint8_t b) {
-  for (uint16_t i = 0; i < NUM_LEDS; ++i) {
-    currentState[i].setRGB(r, g, b);
-  }
-
-  FastLED.show();
-}
-
-float lerpColor(float a, float b, float t) {
-  return a + (b - a) * t;
-}
-
-uint8_t lerp8Snap(uint8_t current, uint8_t target, uint8_t amount, uint8_t threshold = 2) {
-  uint8_t lerped = lerp8by8(current, target, amount);
-  if (abs(lerped - target) <= threshold) {
-    return target;  // snap when close enough
-  }
-  return lerped;
-}
-
-
 void updateLeds() {
   for (uint16_t i = 0; i < NUM_LEDS; ++i) {
     currentState[i].r = (uint8_t)lerpColor((float)currentState[i].r, (float)newState[i].r, 0.1);
     currentState[i].g = (uint8_t)lerpColor((float)currentState[i].g, (float)newState[i].g, 0.1);
     currentState[i].b = (uint8_t)lerpColor((float)currentState[i].b, (float)newState[i].b, 0.1);
-    // currentState[i].r = lerp8Snap(currentState[i].r, newState[i].r, 16, 4);
-    // currentState[i].g = lerp8Snap(currentState[i].g, newState[i].g, 16, 4);
-    // currentState[i].b = lerp8Snap(currentState[i].b, newState[i].b, 16, 4);
-    // currentState[i] = lerpColorHSV(currentState[i], newState[i], 32);
   }
   FastLED.show();
 }

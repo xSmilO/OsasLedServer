@@ -25,25 +25,30 @@ int main() {
             r = 255;
             g = 0;
             b = 0;
+            ledController->addEffect(new StaticColor(r, g, b));
             break;
         case '2':
             r = 0;
             g = 255;
             b = 0;
+            ledController->addEffect(new StaticColor(r, g, b));
             break;
         case '3':
             r = 0;
             g = 0;
             b = 255;
+            ledController->addEffect(new StaticColor(r, g, b));
             break;
         case '4':
             r = 0;
             g = 0;
             b = 0;
+            ledController->addEffect(new StaticColor(r, g, b));
+            break;
+        case '5':
+            ledController->addEffect(new ColorWheel(0.1));
             break;
         }
-
-        ledController->addEffect(new StaticColor(r, g, b));
     }
 
     // ws.stop();

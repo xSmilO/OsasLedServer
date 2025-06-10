@@ -37,39 +37,20 @@ void printMsg(uint8_t *buf, int bufSize) {
 }
 
 void LedController::queuePuller() {
-    unsigned int bufCap = 512;
-    uint16_t bufSize = 0;
-    unsigned int bytesRecv = 0;
-    char arduinoBuff[bufCap];
-
     while(true) {
-        // Sleep(LED_CALL_DELAY);
-
-        // bytesRecv = pDev->readSerialPort(&arduinoBuff[bufSize], bufCap - bufSize);
-        // bytesRecv = pDev->readSerialPort(arduinoBuff, bufCap);
-
-        // if(bytesRecv != 0) {
-        //     printMsg((uint8_t *)arduinoBuff, bytesRecv);
-        //     bytesRecv = 0;
-        // }
-
-        if(effectsQueue.empty()) {
-            continue;
-        }
-        if(!effectsQueue.empty()) {
-            delete currentEffect;
-            currentEffect = effectsQueue.front();
-            effectsQueue.pop();
-        }
-
         if(currentEffect != nullptr) {
             if(currentEffect->update()) {
                 delete currentEffect;
                 currentEffect = nullptr;
             }
+            Pixel::sendData(pPixels, pDev, _numLeds);
         }
 
-        Pixel::sendData(pPixels, pDev, _numLeds);
+        if(!effectsQueue.empty()) {
+            delete currentEffect;
+            currentEffect = effectsQueue.front();
+            effectsQueue.pop();
+        }
     }
 }
 

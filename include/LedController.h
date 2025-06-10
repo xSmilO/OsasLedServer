@@ -5,6 +5,7 @@
 #include <thread>
 
 #include "Effect.h"
+#include "Effects/ColorWheel.h"
 #include "Effects/StaticColor.h"
 
 #define NUM_LEDS 62
