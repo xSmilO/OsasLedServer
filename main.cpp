@@ -46,7 +46,7 @@ int main() {
             ledController->addEffect(new StaticColor(r, g, b));
             break;
         case '5':
-            ledController->addEffect(new ColorWheel(0.1));
+            ledController->addEffect(new ColorWheel(0.05));
             break;
         }
     }

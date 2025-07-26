@@ -1,4 +1,5 @@
 #include "LedController.h"
+#include <chrono>
 
 LedController::LedController(SerialPort *dev) {
     pDev = dev;
@@ -36,8 +37,12 @@ void printMsg(uint8_t *buf, int bufSize) {
     printf("\n");
 }
 
+constexpr double REFRESH_RATE = 1000 / 60;
+
 void LedController::queuePuller() {
+    auto currentTime = std::chrono::high_resolution_clock::now();
     while(true) {
+
         if(currentEffect != nullptr) {
             if(currentEffect->update()) {
                 delete currentEffect;
