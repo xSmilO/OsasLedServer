@@ -1,9 +1,11 @@
 cmake_minimum_required(VERSION 3.10)
 
 project(OsasLedServer)
-# set(CMAKE_CXX_COMPILER:FILEPATH "D:\\DEV\\VS2022\\VC\\Tools\\MSVC\\14.42.34433\\bin\\Hostx64\\x64\\cl.exe")
-set(OPENSSL_ROOT_DIR "D:\\DEV\\vcpkg\\packages\\openssl_x64-windows")
+# set(CMAKE_CXX_COMPILER:FILEPATH
+# "D:\\DEV\\VS2022\\VC\\Tools\\MSVC\\14.42.34433\\bin\\Hostx64\\x64\\cl.exe")
+# set(OPENSSL_ROOT_DIR "D:\\DEV\\vcpkg\\packages\\openssl_x64-windows")
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # add_definitions("/wd4244")
 
 find_package(OpenSSL REQUIRED)
