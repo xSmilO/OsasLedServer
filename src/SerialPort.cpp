@@ -1,105 +1,89 @@
-/*
- * Author: BananaBoii600
- * Modified Library introduced in Arduino Playground which does not work
- * This works perfectly
- * LICENSE: MIT
- */
-
 #include "SerialPort.hpp"
+#include <asm-generic/ioctls.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <termios.h>
+#include <unistd.h>
+#include <stdint.h>
 
-SerialPort::SerialPort(const char *portName) {
-    this->connected = false;
+SerialPort::SerialPort(const char *portName, size_t baudRate) {
+  fd = open("/dev/ttyUSB0", O_RDWR);
+  // clear buffer after opening
+  if (fd < 0) {
+    printf("Error %i from open: %s\n", errno, strerror(errno));
+    is_open = false;
+  }
+  sleep(2);
 
-    this->handler = CreateFileA(static_cast<LPCSTR>(portName), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL,
-                                OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-    if(this->handler == INVALID_HANDLE_VALUE) {
-        DWORD err = GetLastError();
-        if(err == ERROR_FILE_NOT_FOUND) {
-            std::cerr << "ERROR: Handle was not attached.Reason : " << portName << " not available\n";
-        } else if(err == ERROR_ACCESS_DENIED) {
-            std::cerr << "ERROR: Access denied!\n";
-        } else {
-            printf("ERROR: %ld\n", err);
-            std::cerr << "ERROR!!!\n";
-        }
-    } else {
-        DCB dcbSerialParameters = {0};
+  tcflush(fd, TCIOFLUSH);
+  is_open = true;
 
-        if(!GetCommState(this->handler, &dcbSerialParameters)) {
-            std::cerr << "Failed to get current serial parameters\n";
-        } else {
-            dcbSerialParameters.BaudRate = 250000;
-            dcbSerialParameters.ByteSize = 8;
-            dcbSerialParameters.StopBits = ONESTOPBIT;
-            dcbSerialParameters.Parity = NOPARITY;
-            dcbSerialParameters.fDtrControl = DTR_CONTROL_ENABLE;
+  termios tty;
 
-            if(!SetCommState(handler, &dcbSerialParameters)) {
-                std::cout << "ALERT: could not set serial port parameters\n";
-            } else {
-                this->connected = true;
-                PurgeComm(this->handler, PURGE_RXCLEAR | PURGE_TXCLEAR);
-                Sleep(ARDUINO_WAIT_TIME);
-            }
-        }
-    }
+  if (tcgetattr(fd, &tty) != 0) {
+    printf("Error %i from tcgetattr: %s\n", errno, strerror(errno));
+  }
+
+  tty.c_cflag &= ~PARENB;
+  tty.c_cflag &= ~CSTOPB;
+  tty.c_cflag |= CS8;
+  tty.c_cflag &= ~CRTSCTS;
+  tty.c_cflag |= CREAD | CLOCAL;
+
+  tty.c_lflag &= ~ICANON;
+  tty.c_lflag &= ~ECHO;
+  tty.c_lflag &= ~ECHOE;
+  tty.c_lflag &= ~ECHONL;
+  tty.c_lflag &= ~ISIG;
+
+  tty.c_iflag &= ~(IXON | IXOFF | IXANY);
+  tty.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL);
+
+  tty.c_oflag &= ~OPOST;
+  tty.c_oflag &= ~ONLCR;
+
+  tty.c_cc[VTIME] = 2;
+  tty.c_cc[VMIN] = 0;
+
+  cfsetspeed(&tty, baudRate);
+
+  if (tcsetattr(fd, TCSANOW, &tty) != 0) {
+    is_open = false;
+    printf("Error %i from tcsetattr: %s\n", errno, strerror(errno));
+  }
 }
 
-SerialPort::~SerialPort() {
-    if(this->connected) {
-        this->connected = false;
-        CloseHandle(this->handler);
-    }
-}
+SerialPort::~SerialPort() { close(fd); }
+void SerialPort::closeSerial() { close(fd); }
+bool SerialPort::isConnected() { return is_open; }
 
-// Reading bytes from serial port to buffer;
-// returns read bytes count, or if error occurs, returns 0
 int SerialPort::readSerialPort(const char *buffer, unsigned int buf_size) {
-    DWORD bytesRead{};
-    unsigned int toRead = 0;
+  size_t toRead = 0;
+  size_t cbInQue = 0;
 
-    ClearCommError(this->handler, &this->errors, &this->status);
+  ioctl(fd, FIONREAD, &cbInQue);
 
-    if(this->status.cbInQue > 0) {
-        if(this->status.cbInQue > buf_size) {
-            toRead = buf_size;
-        } else {
-            toRead = this->status.cbInQue;
-        }
-    }
+  if (cbInQue > buf_size) {
+    toRead = buf_size;
+  } else {
+    toRead = cbInQue;
+  }
 
-    memset((void *)buffer, 0, buf_size);
-
-    if(ReadFile(this->handler, (void *)buffer, toRead, &bytesRead, NULL)) {
-        return bytesRead;
-    }
-
-    return 0;
+  memset((void *)buffer, 0, buf_size);
+  return read(fd, (void *)buffer, toRead);
 }
 
-// Sending provided buffer to serial port;
-// returns true if succeed, false if not
-bool SerialPort::writeSerialPort(const char *buffer, unsigned int buf_size) {
-    DWORD bytesSend;
-
-    if(!WriteFile(this->handler, (void *)buffer, buf_size, &bytesSend, 0)) {
-        ClearCommError(this->handler, &this->errors, &this->status);
-        printf("ERROR: 0x%08x\n", this->errors);
-        return false;
-    }
-
-    return true;
+bool SerialPort::writeSerialPort(const char *buffer, size_t buf_size) {
+  write(fd, (void *)buffer, buf_size);
+  return true;
 }
 
-// Checking if serial port is connected
-bool SerialPort::isConnected() {
-    if(!ClearCommError(this->handler, &this->errors, &this->status)) {
-        this->connected = false;
-    }
-
-    return this->connected;
-}
-
-void SerialPort::closeSerial() {
-    CloseHandle(this->handler);
+void SerialPort::clearBuffer() {
+  uint8_t byte = 0;
+  while(readSerialPort((const char*)&byte, 1) > 0) {
+    printf("buf ready\n");
+  }
 }

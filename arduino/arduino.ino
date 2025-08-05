@@ -2,7 +2,7 @@
 
 #define NUM_LEDS 62
 #define DATA_PIN 4
-#define BAUD_RATE 250000
+#define BAUD_RATE 500000
 #define BRIGHTNESS 180
 #define HEADER1 0xAA
 #define HEADER2 0x55

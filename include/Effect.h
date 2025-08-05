@@ -1,5 +1,7 @@
 #pragma once
 #include "stdafx.h"
+#include "Pixel.h"
+
 class Effect {
 public:
     size_t numLeds;

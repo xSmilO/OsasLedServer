@@ -1,5 +1,5 @@
 #include "LedController.h"
-#include <chrono>
+#include <cstring>
 
 LedController::LedController(SerialPort *dev) {
     pDev = dev;

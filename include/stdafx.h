@@ -1,11 +1,9 @@
 #pragma once
 
-#include <WinSock2.h>
-// #include <windows.h>
 #include <inttypes.h>
 #include <math.h>
 #include <chrono>
-#include "SerialPort.hpp"
+#include <iostream>
 
 template<typename T>
 bool find(T key, T* arr, const int& size) {

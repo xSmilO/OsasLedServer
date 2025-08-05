@@ -1,12 +1,12 @@
 #pragma once
-#include "FunctionQueue.h"
+#include <queue>
 #include "Pixel.h"
 #include "SerialPort.hpp"
 #include <thread>
 
 #include "Effect.h"
-#include "Effects/ColorWheel.h"
-#include "Effects/StaticColor.h"
+// #include "Effects/ColorWheel.h"
+// #include "Effects/StaticColor.h"
 
 #define NUM_LEDS 62
 #define LED_CALL_DELAY 5

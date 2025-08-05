@@ -1,5 +1,7 @@
 #pragma once
-#include "stdafx.h"
+#include <stdint.h>
+#include "SerialPort.hpp"
+
 
 // constans values
 static const char HEADER1 = 0xAA;
