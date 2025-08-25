@@ -1,26 +1,29 @@
 #pragma once
-#include <arpa/inet.h>
-#include <thread>
-#include <vector>
 #include "LedController.h"
+#include <arpa/inet.h>
+#include <strings.h>
+#include <thread>
+#include <unordered_map>
+
+#define SHA_DIGEST_LENGTH 20
 
 struct Client {
-    int fd;
     bool handshakeDone = false;
     char buffer[4096];
     size_t offset = 0;
-    std::string receivedMessage;
+    int fd = -1;
 };
 
 class WebSocketServer {
   private:
+    const std::string GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
     LedController *_lc;
     sockaddr_in srvAddr;
-    std::vector<Client> clients = {};
+    std::unordered_map<int, Client> clients = {};
     int serverSock;
-    std::thread* handleRequestsThread;
+    std::thread *handleRequestsThread;
     void handleRequests();
-    void performHandshake(const char* buf);
+    bool performHandshake(Client &client);
 
   public:
     WebSocketServer(LedController *lc) : _lc(lc) {}

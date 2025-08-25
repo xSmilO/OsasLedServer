@@ -11,13 +11,18 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(OpenSSL REQUIRED)
 # set(OPENSSL_INCLUDE_DIR "D:/DEV/OpenSSL/include")
 file(GLOB SRC_CPP "${CMAKE_SOURCE_DIR}/src/*.cpp")
-file(GLOB SRC_HPP "${CMAKE_SOURCE_DIR}/src/*.hpp")
 
 # add_executable(${PROJECT_NAME} main.cpp ${SRC_CPP} ${SRC_HPP})
 add_executable(
   ${PROJECT_NAME}
-  main.cpp src/LedController.cpp src/Pixel.cpp src/SerialPort.cpp
-  include/SerialPort.hpp src/WebSocketServer.cpp)
+  main.cpp
+  src/LedController.cpp
+  src/Pixel.cpp
+  src/SerialPort.cpp
+  include/SerialPort.hpp
+  src/WebSocketServer.cpp
+  libs/base64.hpp
+  libs/sha1.hpp)
 # add_executable(SocketServer main.cpp )
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include")
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/utils")
