@@ -2,6 +2,7 @@
 #include "../libs/base64.hpp"
 #include "../libs/sha1.hpp"
 #include <arpa/inet.h>
+#include <cstdio>
 #include <netdb.h>
 #include <string.h>
 #include <sys/epoll.h>
@@ -14,6 +15,8 @@
 #define MAX_EVENTS 32
 #define BUF_SIZE 512
 #define MAX_LINE 256
+
+#define BITVALUE(X, N) (((X) >> (N)) & 0x1)
 
 static uint64_t reverseBytes(uint64_t value) {
     return ((value & 0x00000000000000FFULL) << 56) |
@@ -121,7 +124,7 @@ void WebSocketServer::handleRequests() {
     int conn_sock;
     int socklen;
     int nfds;
-    Client* client;
+    Client *client;
     struct sockaddr_in cli_addr;
     struct epoll_event events[MAX_EVENTS];
     epfd = epoll_create(1);
@@ -166,11 +169,14 @@ void WebSocketServer::handleRequests() {
                         if (client->handshakeDone != true) {
                             printf("[+] data from %d: %s\n", client->fd,
                                    client->buffer);
-                            if(performHandshake(*client)) {
+                            if (performHandshake(*client)) {
                                 client->handshakeDone = true;
                             };
                         } else {
-                            // no to tutaj bedzie analiza req
+                            if (isFrameValid(client->buffer)) {
+                                showFrameMetadata(client->buffer);
+                                getPayloadData(client->buffer);
+                            }
                         }
                     }
                 }
@@ -181,11 +187,83 @@ void WebSocketServer::handleRequests() {
             if (events[i].events & (EPOLLRDHUP | EPOLLHUP)) {
                 printf("[+] connection closed\n");
                 epoll_ctl(epfd, EPOLL_CTL_DEL, events[i].data.fd, NULL);
+                clients.erase(events[i].data.fd);
                 close(events[i].data.fd);
                 continue;
             }
         }
     }
+}
+
+void WebSocketServer::showFrameMetadata(char *frame) {
+    uint8_t offset = 1;
+    printf("[FRAME METADATA]\n");
+    printf("FIN: %d\n", BITVALUE(frame[0], 7));
+    printf("RSV: %d %d %d\n", BITVALUE(frame[0], 6), BITVALUE(frame[0], 5),
+           BITVALUE(frame[0], 4));
+    printf("OPCODE: 0x%01x\n", frame[0] & 0xF);
+    printf("MASK BIT: %d\n", BITVALUE(frame[1], 7));
+    printf("PL length: %ld\n", getPayloadLength(frame, offset));
+    return;
+}
+
+size_t WebSocketServer::getPayloadLength(char *frame, uint8_t &offset) {
+    uint8_t payloadLen = frame[offset] & 0x7F;
+    offset++;
+
+    if (payloadLen <= 125)
+        return payloadLen;
+
+    if (payloadLen == 126) {
+        uint16_t length = 0;
+        printf("==126\n");
+        std::memcpy(&length, frame + offset, sizeof(length));
+        length = ntohs(length);
+        offset += 2;
+        return length;
+    }
+
+    if (payloadLen == 127) {
+        uint64_t length = 0;
+        printf("==127\n");
+        std::memcpy(&length, frame + offset, sizeof(uint64_t));
+        length = reverseBytes(length);
+        offset += 8;
+        return length;
+    }
+    return 0;
+}
+
+void WebSocketServer::getPayloadData(char *frame) {
+    uint8_t offset = 0;
+    offset++;
+
+    uint64_t payloadLength = getPayloadLength(frame, offset);
+
+    char* payloadData = new char[payloadLength];
+    if(BITVALUE(frame[1], 7) != 0) {
+        uint32_t* maskingKey = (uint32_t*)&frame[offset];
+        offset += 4;
+
+        size_t j = 0;
+        uint8_t* original = (uint8_t*)&frame[offset];
+        uint8_t* masking = (uint8_t*)maskingKey;
+        for(size_t i=0; i<payloadLength; ++i) {
+            j = i%4;
+            payloadData[i] = original[i] ^ masking[j];
+        }
+    } else {
+
+    }
+
+    payloadData[payloadLength] = '\0';
+    printf("[ + DATA + ] %s\n", payloadData);
+    delete[] payloadData;
+    return;
+}
+
+bool WebSocketServer::isFrameValid(char *frame) {
+    return (frame[0] & 0x70) == 0;
 }
 
 WebSocketServer::~WebSocketServer() { Stop(); }

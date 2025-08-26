@@ -23,6 +23,10 @@ class WebSocketServer {
     int serverSock;
     std::thread *handleRequestsThread;
     void handleRequests();
+    void showFrameMetadata(char *frame);
+    void getPayloadData(char* frame);
+    size_t getPayloadLength(char *frame, uint8_t &offset);
+    bool isFrameValid(char *frame);
     bool performHandshake(Client &client);
 
   public:
