@@ -1,9 +1,12 @@
+#include <stdafx.h>
 #include "Effects/ColorWheel.h"
 #include "Effects/StaticColor.h"
 #include "LedController.h"
 #include "WebSocketServer.h"
 #include <termios.h>
 // #include <winsock2.h>
+//
+// BOARD NAME = ESP32 ESP-WROOM CH350 WiFi Bluethooth 4.2
 
 // const char *PORT_NAME = "\\\\.\\COM4"; //windows
 const char *PORT_NAME = "/dev/ttyUSB0";
