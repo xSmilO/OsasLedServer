@@ -311,7 +311,6 @@ static void on_screencast_created(GObject *source_object, GAsyncResult *res,
 
 int main(int argc, char **argv) {
     pw_init(&argc, &argv);
-
     AppData data = {0};
     data.loop = g_main_loop_new(NULL, FALSE);
     data.portal = xdp_portal_new();

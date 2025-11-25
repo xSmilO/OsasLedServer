@@ -4,6 +4,7 @@
 #include <strings.h>
 #include <thread>
 #include <unordered_map>
+#include <string>
 
 #define SHA_DIGEST_LENGTH 20
 

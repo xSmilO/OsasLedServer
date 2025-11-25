@@ -1,4 +1,5 @@
 #include "LedController.h"
+#include <stdafx.h>
 #include <cstring>
 
 LedController::LedController(SerialPort *dev) {
@@ -37,7 +38,7 @@ void printMsg(uint8_t *buf, int bufSize) {
     printf("\n");
 }
 
-constexpr double REFRESH_RATE = 1000 / 60;
+constexpr double REFRESH_RATE = 1000. / 60.;
 
 void LedController::queuePuller() {
     auto currentTime = std::chrono::high_resolution_clock::now();

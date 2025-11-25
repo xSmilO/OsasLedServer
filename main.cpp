@@ -1,8 +1,10 @@
-#include <stdafx.h>
+#include "Effects/AmbientLight.h"
 #include "Effects/ColorWheel.h"
 #include "Effects/StaticColor.h"
 #include "LedController.h"
 #include "WebSocketServer.h"
+#include <pipewire/pipewire.h>
+#include <stdafx.h>
 #include <termios.h>
 // #include <winsock2.h>
 //
@@ -24,7 +26,6 @@ int main() {
     //     printf("Something went wrong!");
     // };
     // sleep(2);
-    return 0;
     if (arduino->isConnected()) {
         // arduino->clearBuffer();
         printf("Device is ready\n");
@@ -60,6 +61,9 @@ int main() {
             break;
         case '5':
             ledController->addEffect(new ColorWheel(0.05));
+            break;
+        case '6':
+            ledController->addEffect(new AmbientLight(TOP_LEDS, LEFT_LEDS, RIGHT_LEDS));
             break;
         }
     }

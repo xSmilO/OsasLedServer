@@ -1,5 +1,4 @@
 #pragma once
-#include "stdafx.h"
 #include "Pixel.h"
 
 class Effect {
@@ -8,10 +7,13 @@ public:
     Pixel* outputArr;
 
     virtual bool update() = 0;
+    virtual ~Effect() = default;
     void setNumLeds(size_t num) {
         numLeds = num;
     };
+
     void setOutputArr(Pixel* pixels) {
         outputArr = pixels;
     };
+
 };

@@ -24,6 +24,7 @@ add_executable(
   src/LedController.cpp
   src/Pixel.cpp
   src/SerialPort.cpp
+  src/Effects/AmbientLight.cpp
   include/SerialPort.hpp
   src/WebSocketServer.cpp
   libs/base64.hpp
