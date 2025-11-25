@@ -1,6 +1,11 @@
 #include <Effects/AmbientLight.h>
 #include <iostream>
 
+uint8_t AmbientLight::LEFT_LEDS = 0;
+uint8_t AmbientLight::RIGHT_LEDS = 0;
+uint8_t AmbientLight::TOP_LEDS = 0;
+uint16_t AmbientLight::PADDING = 0;
+
 void AmbientLight::on_state_changed(void *userdata, enum pw_stream_state old,
                                     enum pw_stream_state state,
                                     const char *error) {
@@ -25,6 +30,10 @@ void AmbientLight::on_param_changed(void *userdata, uint32_t id,
 
     data->width = info.size.width;
     data->height = info.size.height;
+
+    data->topPixelsBlock = data->width / AmbientLight::TOP_LEDS;
+    data->leftPixelsBlock = data->height / AmbientLight::LEFT_LEDS;
+    data->rightPixelsBlock = data->height / AmbientLight::RIGHT_LEDS;
 
     switch (info.format) {
     case SPA_VIDEO_FORMAT_BGRA:
@@ -72,13 +81,14 @@ void AmbientLight::on_param_changed(void *userdata, uint32_t id,
     pw_stream_update_params(data->pw_stream, params, 1);
 }
 
-PIXEL_DATA AmbientLight::getColorFromArea(const uint16_t &x1,
-                                          const uint16_t &x2,
-                                          const uint16_t &y1,
-                                          const uint16_t &y2,
+PIXEL_DATA AmbientLight::getColorFromArea(const int16_t &x1, const int16_t &x2,
+                                          const int16_t &y1, const int16_t &y2,
                                           const uint8_t *pixels,
                                           const AmbientLightData *userData) {
     PIXEL_DATA result = {0, 0, 0};
+
+    std::cout << "x (" << x1 << " " << x2 << ") y ( " << y1 << " " << y2 << ") "
+              << std::endl;
 
     uint16_t pixelCount = (x2 - x1) * (y2 - y1);
     uint32_t redSum = 0;
@@ -111,32 +121,25 @@ void AmbientLight::on_process(void *userdata) {
     buf = b->buffer;
 
     unsigned int x = data->width / 2, y = data->height / 2;
-    uint8_t padding = 60;
     if (buf->datas[0].data != NULL || data->initialized) {
         uint8_t *p = (uint8_t *)buf->datas[0].data;
+        uint16_t led_id = 0;
+        uint8_t i = 0;
 
-        // top screen
-        PIXEL_DATA pd = getColorFromArea(0, padding, padding, padding * 2, p, data);
-        // std::cout << "___\n";
-        // std::cout << "R: " << (int)pd.r << " G: " << (int)pd.g
-        //           << " B: " << (int)pd.b << std::endl;
-        data->leds[30].setColor(pd.r, pd.g, pd.b);
-        /*
-        if (x < data->width && y < data->height) {
-            int offset = (y * data->stride + (x * data->bpp));
+        PIXEL_DATA pd;
 
-            if (offset + data->bpp <= buf->datas[0].chunk->size) {
-                uint8_t r, g, b;
-
-                r = p[offset + data->red_offset];
-                g = p[offset + data->green_offset];
-                b = p[offset + data->blue_offset];
-
-                std::cout << "[Pixel " << x << "," << y << "]" << "[" << (int)r
-                          << ", " << (int)g << ", " << (int)b << "]\n";
-            }
+        std::cout << "BLOCK R T L " << data->rightPixelsBlock << " "
+                  << data->topPixelsBlock << " " << data->leftPixelsBlock
+                  << std::endl;
+        for (i = AmbientLight::RIGHT_LEDS - 1; i >= 0; i--) {
+            std::cout << (int)i << ". ";
+            pd = AmbientLight::getColorFromArea(
+                data->width - AmbientLight::PADDING, data->width - 1,
+                i * data->rightPixelsBlock,
+                i * data->rightPixelsBlock + data->rightPixelsBlock, p, data);
+            data->leds[led_id].setColor(pd.r, pd.g, pd.b);
+            led_id++;
         }
-        */
     }
 
     pw_stream_queue_buffer(data->pw_stream, b);
@@ -275,11 +278,12 @@ void AmbientLight::on_screencast_created(GObject *source_object,
                       user_data);
 }
 
-AmbientLight::AmbientLight(uint8_t topLeds, uint8_t rightLeds,
-                           uint8_t leftLeds) {
-    // AmbientLight::TOP_LEDS = topLeds;
-    // AmbientLight::RIGHT_LEDS = rightLeds;
-    // AmbientLight::LEFT_LEDS = leftLeds;
+AmbientLight::AmbientLight(uint8_t topLeds, uint8_t rightLeds, uint8_t leftLeds,
+                           uint16_t padding) {
+    AmbientLight::TOP_LEDS = topLeds;
+    AmbientLight::RIGHT_LEDS = rightLeds;
+    AmbientLight::LEFT_LEDS = leftLeds;
+    AmbientLight::PADDING = padding;
 
     pw_init(NULL, NULL);
     m_data = new AmbientLightData();
@@ -334,6 +338,13 @@ void AmbientLight::workerThread() {
 bool AmbientLight::update() {
     if (m_data->initialized == false) {
         m_data->leds = outputArr;
+
+        for (uint16_t i = 0;
+             i < AmbientLight::TOP_LEDS + AmbientLight::LEFT_LEDS +
+                     AmbientLight::RIGHT_LEDS;
+             ++i) {
+            m_data->leds[i].setId(i);
+        }
         m_data->initialized = true;
     }
     return false;

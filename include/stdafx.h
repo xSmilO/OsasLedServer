@@ -7,6 +7,7 @@
 #define TOP_LEDS 34
 #define LEFT_LEDS 14
 #define RIGHT_LEDS 14
+#define PADDING 100
 
 template<typename T>
 bool find(T key, T* arr, const int& size) {

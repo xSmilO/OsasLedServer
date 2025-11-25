@@ -63,7 +63,7 @@ int main() {
             ledController->addEffect(new ColorWheel(0.05));
             break;
         case '6':
-            ledController->addEffect(new AmbientLight(TOP_LEDS, LEFT_LEDS, RIGHT_LEDS));
+            ledController->addEffect(new AmbientLight(TOP_LEDS, LEFT_LEDS, RIGHT_LEDS, PADDING));
             break;
         }
     }
