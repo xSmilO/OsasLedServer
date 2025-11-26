@@ -87,9 +87,6 @@ PIXEL_DATA AmbientLight::getColorFromArea(const int16_t &x1, const int16_t &x2,
                                           const AmbientLightData *userData) {
     PIXEL_DATA result = {0, 0, 0};
 
-    std::cout << "x (" << x1 << " " << x2 << ") y ( " << y1 << " " << y2 << ") "
-              << std::endl;
-
     uint16_t pixelCount = (x2 - x1) * (y2 - y1);
     uint32_t redSum = 0;
     uint32_t greenSum = 0;
@@ -124,19 +121,40 @@ void AmbientLight::on_process(void *userdata) {
     if (buf->datas[0].data != NULL || data->initialized) {
         uint8_t *p = (uint8_t *)buf->datas[0].data;
         uint16_t led_id = 0;
-        uint8_t i = 0;
+        int16_t i = 0;
 
         PIXEL_DATA pd;
 
-        std::cout << "BLOCK R T L " << data->rightPixelsBlock << " "
-                  << data->topPixelsBlock << " " << data->leftPixelsBlock
-                  << std::endl;
-        for (i = AmbientLight::RIGHT_LEDS - 1; i >= 0; i--) {
-            std::cout << (int)i << ". ";
+        // std::cout << "BLOCK R T L " << data->rightPixelsBlock << " "
+        //           << data->topPixelsBlock << " " << data->leftPixelsBlock
+        //           << std::endl;
+
+        // pd = AmbientLight::getColorFromArea(1820, 1919, 0, 77, p, data);
+
+        for (i = AmbientLight::RIGHT_LEDS - 1; i > -1; --i) {
+            // std::cout << (int)i << ". ";
             pd = AmbientLight::getColorFromArea(
                 data->width - AmbientLight::PADDING, data->width - 1,
                 i * data->rightPixelsBlock,
                 i * data->rightPixelsBlock + data->rightPixelsBlock, p, data);
+            data->leds[led_id].setColor(pd.r, pd.g, pd.b);
+            led_id++;
+        }
+
+        for (i = AmbientLight::TOP_LEDS - 1; i > -1; --i) {
+            pd = AmbientLight::getColorFromArea(
+                i * data->topPixelsBlock,
+                i * data->topPixelsBlock + data->topPixelsBlock - 1, 1,
+                AmbientLight::PADDING, p, data);
+            data->leds[led_id].setColor(pd.r, pd.g, pd.b);
+            led_id++;
+        }
+
+        for (i = 0; i < AmbientLight::LEFT_LEDS; ++i) {
+            pd = AmbientLight::getColorFromArea(
+               1, 
+                AmbientLight::PADDING, i * data->leftPixelsBlock,
+                i * data->leftPixelsBlock + data->leftPixelsBlock  - 1, p, data);
             data->leds[led_id].setColor(pd.r, pd.g, pd.b);
             led_id++;
         }
