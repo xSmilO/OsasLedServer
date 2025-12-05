@@ -87,6 +87,7 @@ bool WebSocketServer::performHandshake(Client &client) {
                                SecKey + buff + "\r\n\r\n";
 
         printf("Sending handshke!\n");
+        // printf("Response: \n%s", response.c_str());
 
         write(client.fd, response.c_str(), response.length());
         return true;
@@ -112,12 +113,12 @@ bool WebSocketServer::Initialize() {
 
 bool WebSocketServer::Start() {
     handleRequestsThread =
-        new std::thread(&WebSocketServer::HandleRequests, this);
+        new std::thread(&WebSocketServer::handleRequests, this);
 
     return true;
 }
 
-void WebSocketServer::HandleRequests() {
+void WebSocketServer::handleRequests() {
     int i, n;
     int epfd;
     int conn_sock;
@@ -173,8 +174,8 @@ void WebSocketServer::HandleRequests() {
                             };
                         } else {
                             if (isFrameValid(client->buffer)) {
-                                ShowFrameMetadata(client->buffer);
-                                GetPayloadData(client->buffer);
+                                showFrameMetadata(client->buffer);
+                                getPayloadData(client->buffer);
                             }
                         }
                     }
@@ -194,7 +195,7 @@ void WebSocketServer::HandleRequests() {
     }
 }
 
-void WebSocketServer::ShowFrameMetadata(char *frame) {
+void WebSocketServer::showFrameMetadata(char *frame) {
     uint8_t offset = 1;
     printf("[FRAME METADATA]\n");
     printf("FIN: %d\n", BITVALUE(frame[0], 7));
@@ -202,11 +203,11 @@ void WebSocketServer::ShowFrameMetadata(char *frame) {
            BITVALUE(frame[0], 4));
     printf("OPCODE: 0x%01x\n", frame[0] & 0xF);
     printf("MASK BIT: %d\n", BITVALUE(frame[1], 7));
-    printf("PL length: %ld\n", GetPayloadLength(frame, offset));
+    printf("PL length: %ld\n", getPayloadLength(frame, offset));
     return;
 }
 
-size_t WebSocketServer::GetPayloadLength(char *frame, uint8_t &offset) {
+size_t WebSocketServer::getPayloadLength(char *frame, uint8_t &offset) {
     uint8_t payloadLen = frame[offset] & 0x7F;
     offset++;
 
@@ -233,11 +234,11 @@ size_t WebSocketServer::GetPayloadLength(char *frame, uint8_t &offset) {
     return 0;
 }
 
-void WebSocketServer::GetPayloadData(char *frame) {
+void WebSocketServer::getPayloadData(char *frame) {
     uint8_t offset = 0;
     offset++;
 
-    uint64_t payloadLength = GetPayloadLength(frame, offset);
+    uint64_t payloadLength = getPayloadLength(frame, offset);
 
     char* payloadData = new char[payloadLength];
     if(BITVALUE(frame[1], 7) != 0) {

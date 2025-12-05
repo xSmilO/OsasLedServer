@@ -23,13 +23,12 @@ class WebSocketServer {
     std::unordered_map<int, Client> clients = {};
     int serverSock;
     std::thread *handleRequestsThread;
-    void HandleRequests();
-    void ShowFrameMetadata(char *frame);
-    void GetPayloadData(char* frame);
-    size_t GetPayloadLength(char *frame, uint8_t &offset);
+    void handleRequests();
+    void showFrameMetadata(char *frame);
+    void getPayloadData(char* frame);
+    size_t getPayloadLength(char *frame, uint8_t &offset);
     bool isFrameValid(char *frame);
     bool performHandshake(Client &client);
-
 
   public:
     WebSocketServer(LedController *lc) : _lc(lc) {}
