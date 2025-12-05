@@ -33,7 +33,7 @@ class WebSocketServer {
   public:
     WebSocketServer(LedController *lc) : _lc(lc) {}
     ~WebSocketServer();
-    bool Initialize();
-    bool Start();
-    void Stop();
+    bool initialize();
+    bool start();
+    void stop();
 };

@@ -96,7 +96,7 @@ bool WebSocketServer::performHandshake(Client &client) {
     return false;
 }
 
-bool WebSocketServer::Initialize() {
+bool WebSocketServer::initialize() {
     serverSock = socket(AF_INET, SOCK_STREAM, 0);
 
     setSockaddr(&srvAddr);
@@ -111,7 +111,7 @@ bool WebSocketServer::Initialize() {
     return true;
 }
 
-bool WebSocketServer::Start() {
+bool WebSocketServer::start() {
     handleRequestsThread =
         new std::thread(&WebSocketServer::handleRequests, this);
 
@@ -266,9 +266,9 @@ bool WebSocketServer::isFrameValid(char *frame) {
     return (frame[0] & 0x70) == 0;
 }
 
-WebSocketServer::~WebSocketServer() { Stop(); }
+WebSocketServer::~WebSocketServer() { stop(); }
 
-void WebSocketServer::Stop() {
+void WebSocketServer::stop() {
     if (handleRequestsThread) {
         if (handleRequestsThread->joinable()) {
             handleRequestsThread->join();

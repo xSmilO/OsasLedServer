@@ -18,9 +18,9 @@ int main() {
     LedController *ledController = new LedController(arduino);
     WebSocketServer ws = WebSocketServer(ledController);
 
-    if (ws.Initialize()) {
+    if (ws.initialize()) {
         printf("Server successfully initialzed!\n");
-        ws.Start();
+        ws.start();
     }
     // if (ws.start() == false) {
     //     printf("Something went wrong!");
