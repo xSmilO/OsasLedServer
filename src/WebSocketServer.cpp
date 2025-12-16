@@ -1,6 +1,7 @@
 #include "WebSocketServer.h"
 #include "../libs/base64.hpp"
 #include "../libs/sha1.hpp"
+#include "PacketRouter.h"
 #include <arpa/inet.h>
 #include <cstdio>
 #include <netdb.h>
@@ -240,24 +241,31 @@ void WebSocketServer::getPayloadData(char *frame) {
 
     uint64_t payloadLength = getPayloadLength(frame, offset);
 
-    char* payloadData = new char[payloadLength];
-    if(BITVALUE(frame[1], 7) != 0) {
-        uint32_t* maskingKey = (uint32_t*)&frame[offset];
+    unsigned char *payloadData = new unsigned char[payloadLength];
+    if (BITVALUE(frame[1], 7) != 0) {
+        uint32_t *maskingKey = (uint32_t *)&frame[offset];
         offset += 4;
 
         size_t j = 0;
-        uint8_t* original = (uint8_t*)&frame[offset];
-        uint8_t* masking = (uint8_t*)maskingKey;
-        for(size_t i=0; i<payloadLength; ++i) {
-            j = i%4;
+        uint8_t *original = (uint8_t *)&frame[offset];
+        uint8_t *masking = (uint8_t *)maskingKey;
+        for (size_t i = 0; i < payloadLength; ++i) {
+            j = i % 4;
             payloadData[i] = original[i] ^ masking[j];
         }
     } else {
-
     }
 
     payloadData[payloadLength] = '\0';
-    printf("[ + DATA + ] %s\n", payloadData);
+    // printf("[ + DATA + ] %s\n", payloadData);
+    printf("[ + DATA + ]\n");
+    for (uint64_t i = 0; i < payloadLength; ++i) {
+        printf("0x%02x ", payloadData[i]);
+    }
+    printf("\n");
+
+    PacketRouter::Route(payloadData, payloadLength);
+
     delete[] payloadData;
     return;
 }

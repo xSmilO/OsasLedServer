@@ -25,8 +25,10 @@ add_executable(
   src/Pixel.cpp
   src/SerialPort.cpp
   src/Effects/AmbientLight.cpp
-  include/SerialPort.hpp
   src/WebSocketServer.cpp
+  src/PacketRouter.cpp
+  src/Dispatchers/EffectDispatcher.cpp
+  include/SerialPort.hpp
   libs/base64.hpp
   libs/sha1.hpp)
 # add_executable(SocketServer main.cpp )
