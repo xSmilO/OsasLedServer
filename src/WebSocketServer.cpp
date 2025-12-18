@@ -1,7 +1,7 @@
 #include "WebSocketServer.h"
 #include "../libs/base64.hpp"
 #include "../libs/sha1.hpp"
-#include "PacketRouter.h"
+#include <Dispatchers/EffectDispatcher.h>
 #include <arpa/inet.h>
 #include <cstdio>
 #include <netdb.h>
@@ -264,7 +264,7 @@ void WebSocketServer::getPayloadData(char *frame) {
     }
     printf("\n");
 
-    PacketRouter::Route(payloadData, payloadLength);
+    processData(payloadData, payloadLength);
 
     delete[] payloadData;
     return;
@@ -285,4 +285,13 @@ void WebSocketServer::stop() {
         delete handleRequestsThread;
     }
     close(serverSock);
+}
+
+void WebSocketServer::processData(const uint8_t *data,
+                                  const uint32_t &dataLength) {
+    // Route to dispatcher
+    switch (data[0]) {
+    case EFFECT_HEADER:
+        EffectDispatcher::dispatch(_lc, data, dataLength);
+    }
 }

@@ -1,7 +1,7 @@
 #pragma once
-#include <queue>
 #include "Pixel.h"
 #include "SerialPort.hpp"
+#include <queue>
 #include <thread>
 
 #include "Effect.h"
@@ -20,9 +20,9 @@ class LedController {
     Effect *currentEffect = nullptr;
     std::thread queuePullThread;
     bool _ledUpdated = false;
+    void queuePuller();
 
   public:
     LedController(SerialPort *dev);
-    void queuePuller();
     void addEffect(Effect *effect);
 };

@@ -4,7 +4,7 @@
 class StaticColor : public Effect {
     uint8_t _r, _g, _b;
 public:
-    StaticColor(uint8_t& r, uint8_t& g, uint8_t& b) : _r(r), _g(g), _b(b) {
+    StaticColor(uint8_t r, uint8_t g, uint8_t b) : _r(r), _g(g), _b(b) {
     }
 
     bool update() {

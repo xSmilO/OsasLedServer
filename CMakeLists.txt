@@ -26,7 +26,6 @@ add_executable(
   src/SerialPort.cpp
   src/Effects/AmbientLight.cpp
   src/WebSocketServer.cpp
-  src/PacketRouter.cpp
   src/Dispatchers/EffectDispatcher.cpp
   include/SerialPort.hpp
   libs/base64.hpp
