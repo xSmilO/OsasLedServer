@@ -1,6 +1,8 @@
 #include "LedController.h"
-#include <stdafx.h>
+#include <chrono>
 #include <cstring>
+#include <stdafx.h>
+#include <thread>
 
 LedController::LedController(SerialPort *dev) {
     pDev = dev;
@@ -10,8 +12,8 @@ LedController::LedController(SerialPort *dev) {
 void logBytes(uint8_t *buf, int bufSize, char *outLog) {
     memset(outLog, 0, 512);
     int length = 0;
-    for(uint16_t i = 0; i < bufSize; ++i) {
-        if(buf[i] == '\n') {
+    for (uint16_t i = 0; i < bufSize; ++i) {
+        if (buf[i] == '\n') {
             length += sprintf(outLog + length, "\n");
         } else {
             length += sprintf(outLog + length, "0x%01x ", buf[i]);
@@ -21,7 +23,7 @@ void logBytes(uint8_t *buf, int bufSize, char *outLog) {
 
 void printBytes(uint8_t *buf, int bufSize) {
     int i = 0;
-    while(i < bufSize) {
+    while (i < bufSize) {
         printf("0x%01x ", buf[i]);
         ++i;
     }
@@ -31,7 +33,7 @@ void printBytes(uint8_t *buf, int bufSize) {
 void printMsg(uint8_t *buf, int bufSize) {
     int i = 0;
     printf("MSG: ");
-    while(i < bufSize) {
+    while (i < bufSize) {
         printf("%c", buf[i]);
         ++i;
     }
@@ -41,21 +43,34 @@ void printMsg(uint8_t *buf, int bufSize) {
 constexpr double REFRESH_RATE = 1000. / 60.;
 
 void LedController::queuePuller() {
-    auto currentTime = std::chrono::high_resolution_clock::now();
-    while(true) {
+    using namespace std::chrono;
 
-        if(currentEffect != nullptr) {
-            if(currentEffect->update()) {
+    const auto frameDuration = milliseconds((int) REFRESH_RATE);
+
+    while (true) {
+        auto startTime = high_resolution_clock::now();
+
+        if (currentEffect != nullptr) {
+            bool isFinished = currentEffect->update();
+
+            Pixel::sendData(pPixels, pDev, _numLeds);
+            if (isFinished) {
+                printf("Effect finished\n");
                 delete currentEffect;
                 currentEffect = nullptr;
             }
-            Pixel::sendData(pPixels, pDev, _numLeds);
         }
 
-        if(!effectsQueue.empty()) {
-            delete currentEffect;
+        if (!effectsQueue.empty() && currentEffect == nullptr) {
             currentEffect = effectsQueue.front();
             effectsQueue.pop();
+        }
+
+        auto endTime = high_resolution_clock::now();
+        auto elapsedTime = duration_cast<milliseconds>(endTime - startTime);
+
+        if(elapsedTime < frameDuration) {
+            std::this_thread::sleep_for(frameDuration - elapsedTime);
         }
     }
 }
@@ -63,7 +78,10 @@ void LedController::queuePuller() {
 void LedController::addEffect(Effect *effect) {
     effect->setNumLeds(_numLeds);
     effect->setOutputArr(pPixels);
-    effectsQueue.push(effect);
+    printf("Adding effect\n");
+
+    if (effectsQueue.size() < 10)
+        effectsQueue.push(effect);
 }
 
 void LedController::changeLedSpeed(uint8_t speed) {
