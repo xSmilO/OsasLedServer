@@ -9,7 +9,7 @@ void dispatch(LedController *lc, const uint8_t *data, const uint32_t &dataLength
     switch (data[1]) {
     case STATIC_EFFECT:
         if (dataLength >= 5) {
-            lc->addEffect(new StaticColor(data[2], data[3], data[4]));
+            lc->addEffect(new StaticColor(&data[2]));
         }
         break;
     }

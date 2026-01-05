@@ -35,6 +35,15 @@ int main() {
     while (true) {
         std::cin >> c;
         switch (c) {
+        case 'q':
+            ledController->changeLedSpeed(2);
+            break;
+        case 'w':
+            ledController->changeLedSpeed(255);
+            break;
+        case 'e':
+            ledController->changeLedSpeed(26);
+            break;
         case '1':
             r = 255;
             g = 0;
@@ -63,7 +72,8 @@ int main() {
             ledController->addEffect(new ColorWheel(0.05));
             break;
         case '6':
-            ledController->addEffect(new AmbientLight(TOP_LEDS, LEFT_LEDS, RIGHT_LEDS, PADDING));
+            ledController->addEffect(
+                new AmbientLight(TOP_LEDS, LEFT_LEDS, RIGHT_LEDS, PADDING));
             break;
         }
     }

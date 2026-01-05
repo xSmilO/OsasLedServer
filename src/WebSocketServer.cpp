@@ -293,5 +293,6 @@ void WebSocketServer::processData(const uint8_t *data,
     switch (data[0]) {
     case EFFECT_HEADER:
         EffectDispatcher::dispatch(_lc, data, dataLength);
+
     }
 }

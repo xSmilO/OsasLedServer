@@ -1,11 +1,12 @@
 #pragma once
-#include <stdint.h>
 #include "SerialPort.hpp"
-
+#include <stdint.h>
 
 // constans values
-static const char HEADER1 = 0xAA;
-static const char HEADER2 = 0x55;
+static const char HEADER_BYTE = 0xAA;
+static const char CMD_FRAME_DATA = 0x10;
+static const char CMD_SET_SETTINGS = 0x20;
+static const char SET_ID_LERP = 0x01;
 
 class Pixel {
   protected:
@@ -30,5 +31,7 @@ class Pixel {
     void fadeToBlack(float amt);
     void HSVtoRGB(const float &H, const float &S, const float &V);
 
-    static void sendData(Pixel *pPixels, SerialPort *pArduino, const int &NUM_LEDS);
+    static void sendData(Pixel *pPixels, SerialPort *pArduino,
+                         const int &NUM_LEDS);
+    static void setLerpSpeed(SerialPort *pArduino, int8_t lerpSpeed);
 };

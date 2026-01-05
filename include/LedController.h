@@ -5,8 +5,6 @@
 #include <thread>
 
 #include "Effect.h"
-// #include "Effects/ColorWheel.h"
-// #include "Effects/StaticColor.h"
 
 #define NUM_LEDS 62
 #define LED_CALL_DELAY 5
@@ -24,5 +22,6 @@ class LedController {
 
   public:
     LedController(SerialPort *dev);
+    void changeLedSpeed(uint8_t speed);
     void addEffect(Effect *effect);
 };

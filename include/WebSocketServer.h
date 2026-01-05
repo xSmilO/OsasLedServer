@@ -10,6 +10,7 @@
 
 // HEADER FLAGS
 #define EFFECT_HEADER 0xEF
+#define SETTINGS_HEADER 0xFF
 
 struct Client {
     bool handshakeDone = false;

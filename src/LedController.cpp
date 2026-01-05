@@ -65,3 +65,7 @@ void LedController::addEffect(Effect *effect) {
     effect->setOutputArr(pPixels);
     effectsQueue.push(effect);
 }
+
+void LedController::changeLedSpeed(uint8_t speed) {
+    Pixel::setLerpSpeed(pDev, speed);
+}
